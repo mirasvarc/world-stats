@@ -13,6 +13,8 @@ export function useShareLink() {
     p.set('stat', s.selectedIndicatorId.value)
     if (!s.isStatic.value) p.set('year', String(s.selectedYear.value))
     if (s.selectedIso3.value) p.set('country', s.selectedIso3.value)
+    if (s.compareIsos.value.length) p.set('compare', s.compareIsos.value.join(','))
+    if (s.yScaleMode.value === 'log') p.set('scale', 'log')
     return `${window.location.pathname}?${p.toString()}`
   }
 
@@ -36,7 +38,7 @@ export function useShareLink() {
 
   // průběžná synchronizace
   watch(
-    [s.selectedIndicatorId, s.selectedYear, s.selectedIso3],
+    [s.selectedIndicatorId, s.selectedYear, s.selectedIso3, s.compareIsos, s.yScaleMode],
     syncUrl
   )
 

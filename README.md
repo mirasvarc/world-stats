@@ -7,18 +7,27 @@ s vybranou zemí. Součástí je časová osa, žebříček zemí a graf vývoje
 ## ✨ Funkce
 
 - **Interaktivní mapa** (Leaflet) – klikni na zemi a stane se referenční
+- **Tooltip u kurzoru** na mapě – aktuální hodnota země ve zvoleném roce
 - **24 statistik** ve 4 kategoriích (ekonomika, obyvatelstvo, zdraví & život, vzdělání/technologie/ekologie)
 - **Obarvení lepší/horší** se správnou sémantikou i pro metriky, kde je nižší lepší
-  (inflace, nezaměstnanost, kojenecká úmrtnost, Gini, CO₂)
-- **Slider roku** (1995–2024) – mapa se přebarví podle dat zvoleného roku
-- **Žebříček zemí** s vyhledáváním (bez ohledu na diakritiku), pořadím a proklikem
+  (inflace, nezaměstnanost, kojenecká úmrtnost, Gini, CO₂); **divergentní gradient** v legendě
+  (intenzita barvy = velikost rozdílu) a plynulé přebarvení při změnách
+- **Slider roku** (1995–2024) s tlačítkem **▶ přehrát** – animace vývoje v čase
+- **Tmavý / světlý režim** (přepínač v liště, přetrvává v `localStorage`, ladí i mapové dlaždice)
+- **Žebříček zemí** s vyhledáváním (bez ohledu na diakritiku), **filtrem kontinentu**,
+  pořadím, proklikem a **exportem do CSV**
+- **Vyhledávání země** přímo v horní liště (přiblíží a vybere zemi)
 - **Graf vývoje v čase** (modální okno):
   - přepínač **lineární / logaritmické** osy Y
   - **porovnání více zemí** (až 5) v jednom grafu
+  - **linka světového mediánu** pro kontext
+  - **interaktivní crosshair** – hodnoty všech sérií pro rok pod kurzorem
+  - **export grafu** do PNG / SVG
   - výběr statistiky přímo v okně
   - zvýraznění aktuálně zvoleného roku, % změna za období
-- **Trvalý (sdílitelný) odkaz** – stav (`?stat=…&year=…&country=…`) se ukládá do URL
-- Robustní načítání: ochrana proti zastaralým datům při rychlém přepínání statistik
+- **Trvalý (sdílitelný) odkaz** – stav (`?stat=…&year=…&country=…&compare=…&scale=…`) se ukládá do URL
+- **Responzivní layout** – na mobilu panel jako sbalitelný spodní list
+- Robustní načítání: ochrana proti zastaralým datům + **trvalá cache v `localStorage`** (TTL 7 dní)
 
 ## 📊 Zdroje dat
 
@@ -88,26 +97,31 @@ world-stats-map/
 ├── nuxt.config.ts
 ├── components/
 │   ├── WorldMap.client.vue       # orchestrátor layoutu + hostuje mapu
-│   ├── AppHeader.vue             # horní lišta (výběr statistiky, sdílení)
+│   ├── AppHeader.vue             # horní lišta (výběr statistiky, hledání, téma, sdílení)
+│   ├── CountrySearch.vue         # vyhledávání země v liště
 │   ├── IndicatorSelect.vue       # znovupoužitelný <select> statistik
-│   ├── YearSlider.vue            # posuvník roku
-│   ├── InfoPanel.vue             # boční panel (ref. země, legenda, žebříček)
-│   ├── MapLegend.vue
-│   ├── RankingPanel.vue          # žebříček + vyhledávání
+│   ├── YearSlider.vue            # posuvník roku + přehrávání času
+│   ├── InfoPanel.vue             # boční / spodní panel (ref. země, legenda, žebříček)
+│   ├── MapLegend.vue             # legenda vč. divergentního gradientu
+│   ├── RankingPanel.vue          # žebříček + hledání + filtr kontinentu + CSV
 │   ├── CountryDisclaimer.vue
-│   ├── ChartModal.vue            # okno s grafem (osy, porovnání zemí)
-│   └── TimeSeriesChart.vue       # čisté SVG vykreslení grafu
+│   ├── ChartModal.vue            # okno s grafem (osy, medián, porovnání, export)
+│   └── TimeSeriesChart.vue       # čisté SVG vykreslení grafu + crosshair
 ├── composables/
 │   ├── useIndicators.ts          # konfigurace statistik (INDICATORS) + seskupení
-│   ├── useStatsData.ts           # načítání/cache dat z API, valueAt()
+│   ├── useStatsData.ts           # načítání + paměťová a localStorage cache, valueAt()
 │   ├── useFormat.ts              # formátování čísel a normalizace textu
 │   ├── useGeo.ts                 # načtení GeoJSON, názvy/množina zemí
-│   ├── useWorldStats.ts          # centrální „store" (sdílený stav + akce)
+│   ├── useContinents.ts          # mapování ISO3 → kontinent (filtr žebříčku)
+│   ├── useWorldStats.ts          # centrální „store" (stav, téma, přehrávání, akce)
 │   ├── useColorScale.ts          # barevná logika lepší/horší
 │   ├── useRanking.ts             # žebříček zemí
-│   ├── useChartModel.ts          # geometrie grafu + porovnání
+│   ├── useChartModel.ts          # geometrie grafu + porovnání + medián
+│   ├── useExport.ts              # export CSV / PNG / SVG
 │   ├── useShareLink.ts           # synchronizace URL + kopírování odkazu
-│   └── useLeafletMap.ts          # orchestrace Leaflet mapy
+│   └── useLeafletMap.ts          # orchestrace Leaflet mapy + tooltip + dlaždice
+├── assets/css/
+│   └── main.css                  # globální téma (světlé/tmavé) + přechody
 └── public/
     └── avg-wage.json             # orientační dataset průměrných mezd
 ```

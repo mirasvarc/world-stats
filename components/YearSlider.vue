@@ -1,13 +1,39 @@
 <script setup lang="ts">
 import { useWorldStats } from '~/composables/useWorldStats'
 
-const { isStatic, minYear, maxYear, selectedYear } = useWorldStats()
+const { isStatic, minYear, maxYear, selectedYear, playing, togglePlay, stopPlay } =
+  useWorldStats()
+
+// ruční tažení posuvníku zastaví přehrávání
+function onManual() {
+  if (playing.value) stopPlay()
+}
 </script>
 
 <template>
   <div v-if="!isStatic" class="yearbar">
+    <button
+      class="play-btn"
+      :title="playing ? 'Pozastavit' : 'Přehrát vývoj v čase'"
+      :aria-label="playing ? 'Pozastavit' : 'Přehrát'"
+      @click="togglePlay"
+    >
+      <svg v-if="playing" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <path fill="currentColor" d="M6 5h4v14H6zM14 5h4v14h-4z" />
+      </svg>
+      <svg v-else viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <path fill="currentColor" d="M7 4v16l13-8z" />
+      </svg>
+    </button>
     <span class="year-edge">{{ minYear }}</span>
-    <input type="range" :min="minYear" :max="maxYear" step="1" v-model.number="selectedYear" />
+    <input
+      type="range"
+      :min="minYear"
+      :max="maxYear"
+      step="1"
+      v-model.number="selectedYear"
+      @input="onManual"
+    />
     <span class="year-edge">{{ maxYear }}</span>
     <span class="year-now">{{ selectedYear }}</span>
   </div>
@@ -31,6 +57,22 @@ const { isStatic, minYear, maxYear, selectedYear } = useWorldStats()
   z-index: 1100;
   width: min(560px, 80vw);
 }
+.play-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: #22c55e;
+  color: #06280f;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.play-btn:hover { background: #16a34a; color: #fff; }
+.play-btn:active { transform: scale(0.92); }
 .yearbar input[type='range'] {
   flex: 1;
   accent-color: #22c55e;
@@ -54,5 +96,16 @@ const { isStatic, minYear, maxYear, selectedYear } = useWorldStats()
   font-size: 0.85rem;
   color: #fde68a;
   width: auto;
+}
+
+/* Mobil: posuvník nahoru pod lištu, ať nekoliduje se spodním panelem. */
+@media (max-width: 640px) {
+  .yearbar {
+    bottom: auto;
+    top: 0.6rem;
+    width: 94vw;
+    gap: 0.5rem;
+    padding: 0.45rem 0.8rem;
+  }
 }
 </style>

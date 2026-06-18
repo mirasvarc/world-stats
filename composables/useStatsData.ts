@@ -70,12 +70,49 @@ async function loadWorldBank(ind: Indicator): Promise<IndicatorData> {
   }
 }
 
-/** Načte data indikátoru (s cache podle id). */
+// ── Trvalá cache v localStorage (zrychlí opakované načtení i mezi relacemi) ──
+const LS_PREFIX = 'wsm-data-v1-'
+const LS_TTL = 7 * 24 * 60 * 60 * 1000 // 7 dní
+
+function lsGet(id: string): IndicatorData | null {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + id)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { t: number; d: IndicatorData }
+    if (!parsed?.t || Date.now() - parsed.t > LS_TTL) {
+      localStorage.removeItem(LS_PREFIX + id)
+      return null
+    }
+    return parsed.d
+  } catch {
+    return null
+  }
+}
+
+function lsSet(id: string, d: IndicatorData): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(LS_PREFIX + id, JSON.stringify({ t: Date.now(), d }))
+  } catch {
+    // quota překročena – ticho, jede se bez trvalé cache
+  }
+}
+
+/** Načte data indikátoru (paměťová → localStorage → síť). */
 export async function loadIndicatorData(ind: Indicator): Promise<IndicatorData> {
   const cached = cache.get(ind.id)
   if (cached) return cached
+
+  const stored = lsGet(ind.id)
+  if (stored) {
+    cache.set(ind.id, stored)
+    return stored
+  }
+
   const result = ind.source === 'static' ? await loadStatic(ind) : await loadWorldBank(ind)
   cache.set(ind.id, result)
+  lsSet(ind.id, result)
   return result
 }
 

@@ -27,4 +27,14 @@
 .disclaimer a { color: #2563eb; text-decoration: none; pointer-events: auto; }
 .disclaimer a:hover { text-decoration: underline; }
 .disclaimer .sep { color: #94a3b8; margin: 0 0.2rem; }
+
+html[data-theme='dark'] .disclaimer {
+  color: #cbd5e1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 0.8);
+}
+html[data-theme='dark'] .disclaimer a { color: #60a5fa; }
+
+@media (max-width: 640px) {
+  .disclaimer { display: none; }
+}
 </style>

@@ -2,7 +2,8 @@
 import { useWorldStats } from '~/composables/useWorldStats'
 import { useShareLink } from '~/composables/useShareLink'
 
-const { selectedIndicatorId, selectedIso3, clearSelection } = useWorldStats()
+const { selectedIndicatorId, selectedIso3, clearSelection, darkMode, toggleTheme } =
+  useWorldStats()
 const { copied, copyLink } = useShareLink()
 
 // Odkaz na repozitář – uprav podle svého GitHub účtu.
@@ -20,11 +21,28 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
         Statistika:
         <IndicatorSelect v-model="selectedIndicatorId" />
       </label>
+      <CountrySearch class="hide-mobile" />
       <button v-if="selectedIso3" class="clear" @click="clearSelection()">
         Zrušit výběr ✕
       </button>
       <button class="share" @click="copyLink">
         {{ copied ? '✓ Zkopírováno' : '🔗 Sdílet odkaz' }}
+      </button>
+      <button
+        class="icon-btn"
+        :title="darkMode ? 'Světlý režim' : 'Tmavý režim'"
+        :aria-label="darkMode ? 'Světlý režim' : 'Tmavý režim'"
+        @click="toggleTheme"
+      >
+        <svg v-if="darkMode" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+          </g>
+        </svg>
+        <svg v-else viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="currentColor" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+        </svg>
       </button>
       <a
         class="github"
@@ -52,8 +70,8 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
   justify-content: space-between;
   gap: 1rem;
   padding: 0.7rem 1.1rem;
-  background: #0f172a;
-  color: #fff;
+  background: var(--bar);
+  color: var(--bar-text);
   z-index: 1000;
 }
 .brand {
@@ -62,6 +80,7 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  white-space: nowrap;
 }
 .logo {
   width: 26px;
@@ -72,6 +91,8 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
   display: flex;
   align-items: center;
   gap: 0.8rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .controls label {
   font-size: 0.9rem;
@@ -109,4 +130,26 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
   transition: background 0.15s, color 0.15s;
 }
 .github:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.icon-btn:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
+
+@media (max-width: 640px) {
+  .topbar { flex-wrap: wrap; gap: 0.5rem; padding: 0.55rem 0.7rem; }
+  .brand { font-size: 0.95rem; }
+  .controls { gap: 0.5rem; }
+  .controls label { font-size: 0.82rem; }
+  .hide-mobile { display: none; }
+}
 </style>

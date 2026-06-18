@@ -22,11 +22,25 @@ export interface ChartSeries {
   color: string
   coords: ChartPoint[]
   line: string
+  dashed?: boolean
+  isMedian?: boolean
+}
+
+export const MEDIAN_COLOR = '#64748b'
+
+/** medián pole čísel (předpokládá neprázdné, neseřazené pole) */
+function median(vals: number[]): number {
+  const a = [...vals].sort((x, y) => x - y)
+  const mid = a.length >> 1
+  return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2
 }
 
 export function useChartModel() {
   const s = useWorldStats()
   const { nameFor, isRealCountry } = useGeo()
+
+  /** zobrazit linku světového mediánu? */
+  const showMedian = ref(true)
 
   /** země v grafu: referenční (první) + porovnávané, bez duplicit */
   const chartIsos = computed(() =>
@@ -72,17 +86,37 @@ export function useChartModel() {
       })
       .filter((ser) => ser.pts.length > 0)
 
-    const allPts = seriesRaw.flatMap((ser) => ser.pts)
-    if (allPts.length < 2 || seriesRaw.length === 0) return { enough: false } as const
+    const countryPts = seriesRaw.flatMap((ser) => ser.pts)
+    if (countryPts.length < 2 || seriesRaw.length === 0) return { enough: false } as const
 
-    const years = allPts.map((p) => p.year)
+    const years = countryPts.map((p) => p.year)
     const x0 = Math.min(...years)
     const x1 = Math.max(...years)
+
+    const useLog = s.yScaleMode.value === 'log' && logFeasible.value
+
+    // světový medián za rok (jen reálné země s daty) – v rozsahu let grafu
+    let medianPts: { year: number; value: number }[] = []
+    if (showMedian.value) {
+      for (let yr = x0; yr <= x1; yr++) {
+        const vals: number[] = []
+        for (const iso in d.byCountry) {
+          if (!isRealCountry(iso)) continue
+          const v = d.byCountry[iso][yr]
+          if (v != null) vals.push(v)
+        }
+        if (vals.length) medianPts.push({ year: yr, value: median(vals) })
+      }
+      // log osa nezobrazí nekladné hodnoty
+      if (useLog) medianPts = medianPts.filter((p) => p.value > 0)
+      if (medianPts.length < 2) medianPts = []
+    }
+
+    const allPts = [...countryPts, ...medianPts]
     const vals = allPts.map((p) => p.value)
     const minY = Math.min(...vals)
     const maxY = Math.max(...vals)
 
-    const useLog = s.yScaleMode.value === 'log' && logFeasible.value
     const tv = (v: number) => (useLog ? Math.log10(v) : v)
     let lo = tv(minY)
     let hi = tv(maxY)
@@ -98,15 +132,38 @@ export function useChartModel() {
     const sx = (yr: number) => PAD.left + ((yr - x0) / (x1 - x0 || 1)) * innerW
     const sy = (v: number) => PAD.top + (1 - (tv(v) - lo) / (hi - lo)) * innerH
 
-    const series: ChartSeries[] = seriesRaw.map((ser) => {
-      const coords = ser.pts.map((p) => ({ ...p, x: sx(p.year), y: sy(p.value) }))
+    const buildLine = (pts: { year: number; value: number }[]): ChartPoint[] =>
+      pts.map((p) => ({ ...p, x: sx(p.year), y: sy(p.value) }))
+
+    const countrySeries: ChartSeries[] = seriesRaw.map((ser) => {
+      const coords = buildLine(ser.pts)
       const line = coords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ')
       return { iso: ser.iso, name: ser.name, color: ser.color, coords, line }
     })
 
-    const single = series.length === 1
+    const medianSeries: ChartSeries | null = medianPts.length
+      ? (() => {
+          const coords = buildLine(medianPts)
+          return {
+            iso: '__median',
+            name: 'medián světa',
+            color: MEDIAN_COLOR,
+            coords,
+            line: coords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' '),
+            dashed: true,
+            isMedian: true,
+          }
+        })()
+      : null
+
+    // medián vykreslíme jako poslední, ať barvy/pořadí zemí zůstanou
+    const series: ChartSeries[] = medianSeries
+      ? [...countrySeries, medianSeries]
+      : countrySeries
+
+    const single = countrySeries.length === 1
     const area = single
-      ? `${PAD.left},${baseY} ${series[0].line} ${PAD.left + innerW},${baseY}`
+      ? `${PAD.left},${baseY} ${countrySeries[0].line} ${PAD.left + innerW},${baseY}`
       : null
 
     const N = 4
@@ -156,6 +213,7 @@ export function useChartModel() {
     chart,
     logFeasible,
     comparableCountries,
+    showMedian,
     addCompare,
     removeCompare,
     CHART,

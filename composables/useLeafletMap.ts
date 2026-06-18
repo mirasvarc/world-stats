@@ -7,8 +7,11 @@ import type { Ref } from 'vue'
 import { useWorldStats } from './useWorldStats'
 import { useGeo } from './useGeo'
 import { useColorScale } from './useColorScale'
+import { valueAt } from './useStatsData'
+import { formatValue } from './useFormat'
 
-const TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
+const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
+const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
 const TILE_ATTR = '&copy; OpenStreetMap, &copy; CARTO | Data: World Bank'
 
 export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
@@ -19,6 +22,18 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
   let L: any = null
   let map: any = null
   let geoLayer: any = null
+  let tileLayer: any = null
+
+  /** obsah tooltipu u kurzoru – aktuální hodnota země ve zvoleném roce */
+  function tooltipHtml(iso3: string): string {
+    const name = geo.nameFor(iso3)
+    const v = valueAt(s.data.value, iso3, s.selectedYear.value)
+    const inner =
+      v != null
+        ? `<span class="tip-val">${formatValue(v, s.currentIndicator.value)} ${s.currentIndicator.value.unit}</span>`
+        : `<span class="tip-nodata">žádná data</span>`
+    return `${name}<br>${inner}`
+  }
 
   function restyle() {
     geoLayer?.eachLayer((layer: any) => layer.setStyle(styleFor(layer.feature.id)))
@@ -36,6 +51,13 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
   }
 
   function onEachFeature(feature: any, layer: any) {
+    // tooltip u kurzoru (obsah se počítá při otevření – odráží aktuální rok/statistiku)
+    layer.bindTooltip(() => tooltipHtml(feature.id), {
+      sticky: true,
+      direction: 'top',
+      className: 'country-tip',
+      opacity: 1,
+    })
     layer.on({
       click: () => s.selectCountry(feature.id),
       mouseover: (e: any) => {
@@ -60,7 +82,10 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
       maxZoom: 6,
       worldCopyJump: true,
     })
-    L.tileLayer(TILE_URL, { attribution: TILE_ATTR, subdomains: 'abcd' }).addTo(map)
+    tileLayer = L.tileLayer(s.darkMode.value ? TILE_DARK : TILE_LIGHT, {
+      attribution: TILE_ATTR,
+      subdomains: 'abcd',
+    }).addTo(map)
 
     try {
       await geo.loadGeo()
@@ -97,4 +122,6 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
   watch(s.selectedYear, restyle)
   watch(s.selectedIso3, restyle)
   watch(s.focusNonce, () => focusOn(s.selectedIso3.value))
+  // přepnutí tmavého režimu → výměna mapových dlaždic
+  watch(s.darkMode, (dark) => tileLayer?.setUrl(dark ? TILE_DARK : TILE_LIGHT))
 }

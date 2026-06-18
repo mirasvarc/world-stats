@@ -10,8 +10,6 @@
 </template>
 
 <style>
-* { box-sizing: border-box; }
-html, body, #__nuxt { margin: 0; height: 100%; }
 .loading {
   position: fixed;
   inset: 0;
@@ -19,7 +17,7 @@ html, body, #__nuxt { margin: 0; height: 100%; }
   align-items: center;
   justify-content: center;
   font-family: system-ui, sans-serif;
-  color: #334155;
-  background: #eaf2f8;
+  color: var(--text-2);
+  background: var(--map-bg);
 }
 </style>

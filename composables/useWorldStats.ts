@@ -10,17 +10,29 @@ import {
 import { loadIndicatorData, valueAt, type IndicatorData } from './useStatsData'
 import { useGeo } from './useGeo'
 
-// ── Počáteční stav z URL (?stat=...&year=...&country=...) ───────
+// ── Počáteční stav z URL (?stat=...&year=...&country=...&compare=...&scale=...) ───────
+const ISO3_RE = /^[A-Za-z]{3}$/
+
 function parseInitialQuery() {
   if (typeof window === 'undefined') return {}
   const p = new URLSearchParams(window.location.search)
   const stat = p.get('stat')
   const year = p.get('year')
   const country = p.get('country')
+  const compare = p.get('compare')
+  const scale = p.get('scale')
   return {
     stat: isValidIndicatorId(stat) ? stat! : undefined,
     year: year && /^\d{4}$/.test(year) ? Number(year) : undefined,
-    country: country && /^[A-Za-z]{3}$/.test(country) ? country.toUpperCase() : undefined,
+    country: country && ISO3_RE.test(country) ? country.toUpperCase() : undefined,
+    compare: compare
+      ? compare
+          .split(',')
+          .filter((x) => ISO3_RE.test(x))
+          .map((x) => x.toUpperCase())
+          .slice(0, 5)
+      : undefined,
+    scale: scale === 'log' || scale === 'linear' ? scale : undefined,
   }
 }
 const initial = parseInitialQuery()
@@ -37,12 +49,61 @@ const loading = ref(true)
 const errorMsg = ref<string | null>(null)
 
 // stav grafu / porovnání
-const compareIsos = ref<string[]>([])
-const yScaleMode = ref<'linear' | 'log'>('linear')
+const compareIsos = ref<string[]>(initial.compare ?? [])
+const yScaleMode = ref<'linear' | 'log'>(initial.scale ?? 'linear')
 const showChart = ref(false)
 
 // požadavek na přiblížení mapy na zemi (nonce, na který reaguje mapa)
 const focusNonce = ref(0)
+
+// ── Téma (světlé/tmavé) – přetrvává v localStorage ─────────────
+function initialDark(): boolean {
+  if (typeof document === 'undefined') return false
+  return document.documentElement.getAttribute('data-theme') === 'dark'
+}
+const darkMode = ref<boolean>(initialDark())
+
+function applyTheme() {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-theme', darkMode.value ? 'dark' : 'light')
+  try {
+    localStorage.setItem('wsm-theme', darkMode.value ? 'dark' : 'light')
+  } catch {}
+}
+function toggleTheme() {
+  darkMode.value = !darkMode.value
+  applyTheme()
+}
+
+// ── Přehrávání času (animace roků) ─────────────────────────────
+const playing = ref(false)
+let playTimer: ReturnType<typeof setInterval> | null = null
+
+function stopPlay() {
+  playing.value = false
+  if (playTimer) {
+    clearInterval(playTimer)
+    playTimer = null
+  }
+}
+
+function togglePlay() {
+  if (isStatic.value) return
+  if (playing.value) {
+    stopPlay()
+    return
+  }
+  // od začátku, pokud jsme na konci časové osy
+  if (selectedYear.value >= maxYear.value) selectedYear.value = minYear.value
+  playing.value = true
+  playTimer = setInterval(() => {
+    if (selectedYear.value >= maxYear.value) {
+      stopPlay()
+      return
+    }
+    selectedYear.value = selectedYear.value + 1
+  }, 700)
+}
 
 // ── Odvozený stav ──────────────────────────────────────────────
 const currentIndicator = computed<Indicator>(
@@ -89,6 +150,7 @@ async function load(indicatorId = selectedIndicatorId.value, desiredYear?: numbe
     if (token !== loadToken) return // mezitím se přepnula jiná statistika
     data.value = d
     loadedIndicatorId.value = ind.id
+    if (d.isStatic) stopPlay() // statická data nemají časovou osu
     const y = desiredYear
     selectedYear.value =
       y != null && y >= d.minYear && y <= d.maxYear ? y : d.defaultYear
@@ -150,6 +212,8 @@ export function useWorldStats() {
     yScaleMode,
     showChart,
     focusNonce,
+    darkMode,
+    playing,
     // odvozené
     currentIndicator,
     ready,
@@ -167,5 +231,8 @@ export function useWorldStats() {
     removeCompare,
     openChart,
     closeChart,
+    toggleTheme,
+    togglePlay,
+    stopPlay,
   }
 }

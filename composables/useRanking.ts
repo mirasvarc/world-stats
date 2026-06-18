@@ -2,12 +2,14 @@
 
 import { useWorldStats } from './useWorldStats'
 import { useGeo } from './useGeo'
+import { continentOf, type Continent } from './useContinents'
 
 export interface RankRow {
   iso3: string
   name: string
   value: number
   rank: number
+  continent: Continent
 }
 
 export function useRanking() {
@@ -28,7 +30,7 @@ export function useRanking() {
       rows.push({ iso3, name: nameFor(iso3), value: v })
     }
     rows.sort((a, b) => (higher ? b.value - a.value : a.value - b.value))
-    return rows.map((r, i) => ({ ...r, rank: i + 1 }))
+    return rows.map((r, i) => ({ ...r, rank: i + 1, continent: continentOf(r.iso3) }))
   })
 
   const selectedRank = computed(() => {

@@ -2,6 +2,7 @@
 import { useWorldStats } from '~/composables/useWorldStats'
 import { useChartModel } from '~/composables/useChartModel'
 import { formatValue, formatPercent } from '~/composables/useFormat'
+import { exportChartSvg, exportChartPng } from '~/composables/useExport'
 
 const {
   showChart,
@@ -15,8 +16,33 @@ const {
   compareIsos,
 } = useWorldStats()
 
-const { chart, logFeasible, comparableCountries, addCompare, removeCompare, MAX_COMPARE } =
-  useChartModel()
+const {
+  chart,
+  logFeasible,
+  comparableCountries,
+  showMedian,
+  addCompare,
+  removeCompare,
+  MAX_COMPARE,
+} = useChartModel()
+
+const chartWrap = ref<HTMLElement | null>(null)
+
+function exportName() {
+  const c = selectedCountry.value?.iso3 ?? 'graf'
+  return `${selectedIndicatorId.value}-${c}`
+}
+function svgEl(): SVGSVGElement | null {
+  return chartWrap.value?.querySelector('svg') ?? null
+}
+function onExportSvg() {
+  const el = svgEl()
+  if (el) exportChartSvg(el, exportName())
+}
+function onExportPng() {
+  const el = svgEl()
+  if (el) exportChartPng(el, exportName())
+}
 
 function onAddCountry(e: Event) {
   const el = e.target as HTMLSelectElement
@@ -49,7 +75,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         <div v-if="!ready" class="modal-empty">Načítám data…</div>
 
         <template v-else>
-          <!-- toolbar: měřítko osy + přidání země -->
+          <!-- toolbar: měřítko osy + medián + přidání země + export -->
           <div class="modal-toolbar">
             <div class="scale-toggle">
               <span class="tl-label">Osa Y:</span>
@@ -65,6 +91,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                 Log
               </button>
             </div>
+
+            <button class="median-toggle" :class="{ on: showMedian }" @click="showMedian = !showMedian">
+              <span class="median-dash" /> medián světa
+            </button>
+
             <div class="add-country">
               <select
                 :disabled="compareIsos.length >= MAX_COMPARE || comparableCountries.length === 0"
@@ -78,14 +109,29 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                 </option>
               </select>
             </div>
+
+            <div class="export-grp">
+              <button title="Stáhnout jako PNG" @click="onExportPng">⬇ PNG</button>
+              <button title="Stáhnout jako SVG" @click="onExportSvg">SVG</button>
+            </div>
           </div>
 
           <!-- legenda zemí -->
           <div v-if="chart && chart.enough" class="chart-legend">
-            <span v-for="(ser, si) in chart.series" :key="ser.iso" class="leg-chip">
-              <span class="leg-dot" :style="{ background: ser.color }" />
+            <span
+              v-for="(ser, si) in chart.series"
+              :key="ser.iso"
+              class="leg-chip"
+              :class="{ 'leg-median': ser.isMedian }"
+            >
+              <span class="leg-dot" :class="{ 'leg-dot-dash': ser.dashed }" :style="{ background: ser.color }" />
               {{ ser.name }}
-              <button v-if="si !== 0" class="leg-x" title="Odebrat" @click="removeCompare(ser.iso)">✕</button>
+              <button
+                v-if="si !== 0 && !ser.isMedian"
+                class="leg-x"
+                title="Odebrat"
+                @click="removeCompare(ser.iso)"
+              >✕</button>
             </span>
           </div>
 
@@ -105,7 +151,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
               </span>
             </div>
 
-            <TimeSeriesChart :chart="chart" />
+            <div ref="chartWrap">
+              <TimeSeriesChart :chart="chart" />
+            </div>
 
             <div class="modal-foot">
               <span class="dot-amber" /> zvolený rok ({{ selectedYear }}) na referenční zemi ·
@@ -130,9 +178,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   z-index: 3000;
 }
 .modal {
-  background: #fff;
+  background: var(--surface);
+  color: var(--text);
   border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-modal);
   width: min(760px, 96vw);
   max-height: 92vh;
   overflow-y: auto;
@@ -147,28 +196,29 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   margin-bottom: 0.5rem;
 }
 .modal-headmain { min-width: 0; flex: 1; }
-.modal-title { font-size: 1.4rem; font-weight: 700; color: #0f172a; }
+.modal-title { font-size: 1.4rem; font-weight: 700; color: var(--text); }
 .modal-stat { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.35rem; }
 .modal-stat :deep(.modal-stat-select),
 .modal-stat :deep(select) {
   padding: 0.32rem 0.5rem;
   border-radius: 7px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-2);
   font-size: 0.9rem;
-  background: #fff;
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
   max-width: 320px;
 }
 .modal-stat :deep(select:focus) {
   outline: none;
-  border-color: #2563eb;
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
-.ind-unit { color: #94a3b8; font-weight: 400; font-size: 0.85rem; }
+.ind-unit { color: var(--text-muted); font-weight: 400; font-size: 0.85rem; }
 .modal-close {
   border: none;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--surface-3);
+  color: var(--text-2);
   width: 34px;
   height: 34px;
   border-radius: 8px;
@@ -176,71 +226,110 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   font-size: 1rem;
   flex: 0 0 auto;
 }
-.modal-close:hover { background: #e2e8f0; }
-.modal-empty { color: #64748b; padding: 2rem 0.5rem; text-align: center; }
+.modal-close:hover { background: var(--border); }
+.modal-empty { color: var(--text-3); padding: 2rem 0.5rem; text-align: center; }
 .modal-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 0.6rem;
   margin: 0.4rem 0 0.7rem;
 }
 .scale-toggle { display: inline-flex; align-items: center; gap: 0.35rem; }
-.tl-label { font-size: 0.82rem; color: #64748b; margin-right: 0.15rem; }
+.tl-label { font-size: 0.82rem; color: var(--text-3); margin-right: 0.15rem; }
 .scale-toggle button {
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #475569;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text-2);
   font-size: 0.82rem;
   padding: 0.3rem 0.7rem;
   cursor: pointer;
 }
 .scale-toggle button:first-of-type { border-radius: 7px 0 0 7px; }
 .scale-toggle button:last-of-type { border-radius: 0 7px 7px 0; border-left: none; }
-.scale-toggle button.on { background: #2563eb; color: #fff; border-color: #2563eb; }
+.scale-toggle button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .scale-toggle button:disabled { opacity: 0.4; cursor: not-allowed; }
+.median-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: 0.82rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.median-toggle.on { color: var(--text); border-color: #64748b; }
+.median-toggle .median-dash {
+  width: 16px;
+  height: 0;
+  border-top: 2px dashed #64748b;
+  display: inline-block;
+}
+.add-country { margin-left: auto; }
 .add-country select {
   padding: 0.35rem 0.5rem;
   border-radius: 7px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-2);
   font-size: 0.82rem;
-  background: #fff;
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
   max-width: 260px;
 }
 .add-country select:disabled { opacity: 0.5; cursor: not-allowed; }
+.export-grp { display: inline-flex; gap: 0.3rem; }
+.export-grp button {
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 0.8rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.export-grp button:hover { background: var(--surface-3); }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.6rem; }
 .leg-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background: #f1f5f9;
+  background: var(--surface-3);
   border-radius: 999px;
   padding: 0.2rem 0.55rem;
   font-size: 0.82rem;
-  color: #334155;
+  color: var(--text-2);
 }
+.leg-median { font-style: italic; }
 .leg-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.leg-dot.leg-dot-dash {
+  width: 16px;
+  height: 0;
+  border-radius: 0;
+  background: none !important;
+  border-top: 2px dashed #64748b;
+}
 .leg-x {
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 0.75rem;
   padding: 0;
   margin-left: 0.1rem;
   line-height: 1;
 }
-.leg-x:hover { color: #dc2626; }
-.modal-change { font-size: 0.92rem; color: #334155; margin: 0.3rem 0 0.6rem; }
-.modal-change .up { color: #16a34a; }
-.modal-change .down { color: #dc2626; }
-.modal-change-vals { color: #94a3b8; }
+.leg-x:hover { color: var(--bad); }
+.modal-change { font-size: 0.92rem; color: var(--text-2); margin: 0.3rem 0 0.6rem; }
+.modal-change .up { color: var(--good); }
+.modal-change .down { color: var(--bad); }
+.modal-change-vals { color: var(--text-muted); }
 .modal-foot {
   margin-top: 0.6rem;
   font-size: 0.78rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 0.4rem;

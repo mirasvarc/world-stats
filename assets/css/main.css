@@ -1,0 +1,94 @@
+/* Globální styly + barevné téma (světlé/tmavé).
+ * Komponenty čtou barvy přes CSS proměnné, takže přepnutí tématu
+ * (data-theme na <html>) automaticky překreslí celé UI. */
+
+:root {
+  /* povrchy */
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
+  --map-bg: #eaf2f8;
+  /* text */
+  --text: #0f172a;
+  --text-2: #334155;
+  --text-3: #64748b;
+  --text-muted: #94a3b8;
+  /* linky/okraje */
+  --border: #e2e8f0;
+  --border-2: #cbd5e1;
+  /* akcent */
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: #eff6ff;
+  --accent-soft-text: #1e3a8a;
+  /* sémantika lepší/horší */
+  --good: #16a34a;
+  --good-fill: #22c55e;
+  --bad: #dc2626;
+  --bad-fill: #ef4444;
+  /* lišta (zůstává tmavá v obou tématech) */
+  --bar: #0f172a;
+  --bar-text: #ffffff;
+  /* stíny */
+  --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.18);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.35);
+  /* upozornění */
+  --warn-bg: #fef3c7;
+  --warn-text: #92400e;
+}
+
+html[data-theme='dark'] {
+  --surface: #1e293b;
+  --surface-2: #273549;
+  --surface-3: #334155;
+  --map-bg: #0b1220;
+  --text: #f1f5f9;
+  --text-2: #cbd5e1;
+  --text-3: #94a3b8;
+  --text-muted: #64748b;
+  --border: #334155;
+  --border-2: #475569;
+  --accent: #3b82f6;
+  --accent-strong: #60a5fa;
+  --accent-soft: #1e3a5f;
+  --accent-soft-text: #bfdbfe;
+  --good: #22c55e;
+  --good-fill: #22c55e;
+  --bad: #f87171;
+  --bad-fill: #ef4444;
+  --bar: #0b1220;
+  --bar-text: #f1f5f9;
+  --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.6);
+  --warn-bg: #422006;
+  --warn-text: #fde68a;
+}
+
+* { box-sizing: border-box; }
+html, body, #__nuxt { margin: 0; height: 100%; }
+
+/* Plynulé přebarvení zemí na mapě při změně roku/statistiky/výběru (#9). */
+.leaflet-interactive {
+  transition: fill 0.45s ease, fill-opacity 0.45s ease, stroke 0.2s ease,
+    stroke-width 0.2s ease;
+}
+
+/* Tooltip u kurzoru na mapě (#10). */
+.country-tip {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  padding: 0.35rem 0.55rem;
+  font: 600 0.82rem/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  white-space: nowrap;
+}
+.country-tip .tip-val { color: var(--accent); font-weight: 700; }
+.country-tip .tip-nodata { color: var(--text-muted); font-weight: 400; }
+.leaflet-tooltip.country-tip::before { display: none; }
+
+/* Respekt k uživatelskému nastavení – vypnout animace. */
+@media (prefers-reduced-motion: reduce) {
+  .leaflet-interactive { transition: none; }
+}
