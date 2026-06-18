@@ -46,14 +46,35 @@ npm run dev
 
 > Pokud je port 3000 obsazený, spusť na jiném: `PORT=3100 npm run dev`
 
-### Build pro produkci
+## ☁️ Deploy na Cloudflare Workers
+
+Aplikace je nakonfigurovaná pro **Cloudflare Workers** (Nitro preset `cloudflare-module`
+v `nuxt.config.ts`, konfigurace v `wrangler.toml`). Worker obstarává SSR, statická aktiva
+(HTML/JS/CSS, `avg-wage.json`) servíruje Workers Assets přes binding `ASSETS`.
 
 ```bash
-npm run build      # serverový build (Node)
-npm run preview    # náhled produkčního buildu
+# jednorázové přihlášení k Cloudflare účtu
+npx wrangler login
 
-# nebo statická varianta:
-npm run generate   # do .output/public
+# build + deploy
+npm run deploy            # = nuxt build && wrangler deploy
+
+# lokální náhled v reálném Workers runtime (workerd) na http://localhost:8787
+npm run preview           # = nuxt build && wrangler dev
+```
+
+Aplikace se nasadí na `https://world-stats-map.<tvuj-subdomena>.workers.dev`
+(název změníš v `wrangler.toml` → `name`). Pro vlastní doménu přidej do `wrangler.toml`
+sekci `[[routes]]` nebo nastav route v Cloudflare dashboardu.
+
+> Veškerá data (World Bank API, GeoJSON) se stahují **na straně prohlížeče**, worker tedy
+> nedělá žádné odchozí požadavky – jen vrací aplikaci.
+
+### Build pro jiné prostředí
+
+```bash
+NITRO_PRESET=node-server npm run build   # klasický Node server
+npm run generate                         # plně statická varianta (SPA) do .output/public
 ```
 
 ## 🗂️ Struktura projektu

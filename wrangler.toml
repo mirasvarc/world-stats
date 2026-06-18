@@ -1,0 +1,15 @@
+# Konfigurace pro deploy na Cloudflare Workers.
+# Build: `npm run build`  →  výstup v .output/ (Nitro preset cloudflare-module)
+# Deploy: `npm run deploy`  (nebo `npx wrangler deploy`)
+# Lokální náhled: `npm run preview`  (nebo `npx wrangler dev`)
+
+name = "world-stats-map"
+main = "./.output/server/index.mjs"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Statická aktiva (HTML, JS, CSS, /avg-wage.json) servíruje Workers Assets.
+[assets]
+directory = "./.output/public"
+binding = "ASSETS"
