@@ -81,6 +81,12 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
       minZoom: 2,
       maxZoom: 6,
       worldCopyJump: true,
+      // svisle omezíme na rozsah Web Mercatoru (±85°), vodorovně necháme nekonečné
+      maxBounds: [
+        [-85, -Infinity],
+        [85, Infinity],
+      ],
+      maxBoundsViscosity: 1.0,
     })
     tileLayer = L.tileLayer(s.darkMode.value ? TILE_DARK : TILE_LIGHT, {
       attribution: TILE_ATTR,
