@@ -6,7 +6,7 @@ const { selectedIndicatorId, selectedIso3, clearSelection } = useWorldStats()
 const { copied, copyLink } = useShareLink()
 
 // Odkaz na repozitář – uprav podle svého GitHub účtu.
-const GITHUB_URL = 'https://github.com/mirasvarc1/world-stats-map'
+const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
 </script>
 
 <template>
