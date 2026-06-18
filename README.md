@@ -58,21 +58,42 @@ npm run generate   # do .output/public
 
 ## 🗂️ Struktura projektu
 
+Aplikace je rozdělená na malé prezentační komponenty a composables se sdíleným stavem
+a logikou (snadno testovatelné a rozšiřitelné).
+
 ```
 world-stats-map/
-├── app.vue                          # kořenová komponenta (ClientOnly wrapper)
-├── nuxt.config.ts                   # konfigurace Nuxtu
+├── app.vue                       # kořen (ClientOnly wrapper)
+├── nuxt.config.ts
 ├── components/
-│   └── WorldMap.client.vue          # mapa, panel, žebříček, graf (client-only)
+│   ├── WorldMap.client.vue       # orchestrátor layoutu + hostuje mapu
+│   ├── AppHeader.vue             # horní lišta (výběr statistiky, sdílení)
+│   ├── IndicatorSelect.vue       # znovupoužitelný <select> statistik
+│   ├── YearSlider.vue            # posuvník roku
+│   ├── InfoPanel.vue             # boční panel (ref. země, legenda, žebříček)
+│   ├── MapLegend.vue
+│   ├── RankingPanel.vue          # žebříček + vyhledávání
+│   ├── CountryDisclaimer.vue
+│   ├── ChartModal.vue            # okno s grafem (osy, porovnání zemí)
+│   └── TimeSeriesChart.vue       # čisté SVG vykreslení grafu
 ├── composables/
-│   └── useStats.ts                  # definice indikátorů + načítání/formátování dat
+│   ├── useIndicators.ts          # konfigurace statistik (INDICATORS) + seskupení
+│   ├── useStatsData.ts           # načítání/cache dat z API, valueAt()
+│   ├── useFormat.ts              # formátování čísel a normalizace textu
+│   ├── useGeo.ts                 # načtení GeoJSON, názvy/množina zemí
+│   ├── useWorldStats.ts          # centrální „store" (sdílený stav + akce)
+│   ├── useColorScale.ts          # barevná logika lepší/horší
+│   ├── useRanking.ts             # žebříček zemí
+│   ├── useChartModel.ts          # geometrie grafu + porovnání
+│   ├── useShareLink.ts           # synchronizace URL + kopírování odkazu
+│   └── useLeafletMap.ts          # orchestrace Leaflet mapy
 └── public/
-    └── avg-wage.json                # orientační dataset průměrných mezd
+    └── avg-wage.json             # orientační dataset průměrných mezd
 ```
 
 ## ➕ Přidání další statistiky
 
-Stačí přidat položku do pole `INDICATORS` v `composables/useStats.ts`:
+Stačí přidat položku do pole `INDICATORS` v `composables/useIndicators.ts`:
 
 ```ts
 {

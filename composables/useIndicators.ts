@@ -1,23 +1,29 @@
-// Konfigurace statistik + načítání dat (s historií po letech).
+// Konfigurace dostupných statistik (indikátorů).
 //
-// Většina dat pochází ze World Bank API (otevřené, bez klíče):
-//   https://api.worldbank.org/v2/country/all/indicator/<KÓD>?format=json&date=1995:2024
-// Klíčem pro spojení s mapou je ISO-3166 alpha-3 kód země (countryiso3code).
-//
-// Průměrná mzda nemá čistý World Bank indikátor, proto se načítá z přibližného
-// statického datasetu v public/avg-wage.json (čistá měsíční mzda v USD, orientačně).
+// Přidání další statistiky = přidat položku do INDICATORS. U World Bank stačí
+// vyplnit `code` (kód indikátoru, viz https://data.worldbank.org/indicator),
+// u statického datasetu `file` (cesta do /public). `higherIsBetter` určuje,
+// zda vyšší hodnota znamená „lepší" (zelená) – u inflace, nezaměstnanosti apod. je false.
 
 export interface Indicator {
   id: string
   label: string
   unit: string
   group: string
-  // true = vyšší hodnota je "lepší" (zelená), false = nižší je lepší (např. inflace)
+  /** true = vyšší hodnota je „lepší" (zelená); false = nižší je lepší (např. inflace) */
   higherIsBetter: boolean
   source: 'worldbank' | 'static'
+  /** kód World Bank indikátoru (pro source === 'worldbank') */
   code?: string
+  /** cesta k JSON datasetu v /public (pro source === 'static') */
   file?: string
+  /** počet desetinných míst při zobrazení */
   decimals?: number
+}
+
+export interface IndicatorGroup {
+  name: string
+  items: Indicator[]
 }
 
 export const INDICATORS: Indicator[] = [
@@ -54,95 +60,26 @@ export const INDICATORS: Indicator[] = [
   { id: 'co2', group: 'Vzdělání & technologie & ekologie', label: 'Emise CO₂ na obyvatele', unit: 't/rok', higherIsBetter: false, source: 'worldbank', code: 'EN.GHG.CO2.PC.CE.AR5', decimals: 2 },
 ]
 
-export interface IndicatorData {
-  // iso3 -> (rok -> hodnota)
-  byCountry: Record<string, Record<number, number>>
-  years: number[] // seřazené roky, které mají alespoň nějaká data
-  minYear: number
-  maxYear: number
-  bestYear: number // rok s nejlepším pokrytím (vhodný jako výchozí)
-  isStatic: boolean
+const INDICATOR_BY_ID = new Map(INDICATORS.map((i) => [i.id, i]))
+
+export function getIndicator(id: string): Indicator | undefined {
+  return INDICATOR_BY_ID.get(id)
 }
 
-const STATIC_YEAR = 2024 // reprezentativní rok pro statické datasety bez historie
+export function isValidIndicatorId(id: string | null | undefined): boolean {
+  return !!id && INDICATOR_BY_ID.has(id)
+}
 
-const cache = new Map<string, IndicatorData>()
-
-export async function loadIndicatorData(ind: Indicator): Promise<IndicatorData> {
-  if (cache.has(ind.id)) return cache.get(ind.id)!
-
-  const byCountry: Record<string, Record<number, number>> = {}
-  const coverage: Record<number, number> = {}
-
-  if (ind.source === 'static') {
-    const raw = await fetch(ind.file!).then((r) => r.json())
-    for (const [iso3, value] of Object.entries(raw as Record<string, unknown>)) {
-      if (iso3.startsWith('_') || typeof value !== 'number') continue
-      byCountry[iso3.toUpperCase()] = { [STATIC_YEAR]: value }
-      coverage[STATIC_YEAR] = (coverage[STATIC_YEAR] ?? 0) + 1
+/** Statistiky seskupené podle kategorie (pro <optgroup> v selectu). */
+export function groupedIndicators(): IndicatorGroup[] {
+  const groups: IndicatorGroup[] = []
+  for (const ind of INDICATORS) {
+    let g = groups.find((x) => x.name === ind.group)
+    if (!g) {
+      g = { name: ind.group, items: [] }
+      groups.push(g)
     }
-    const result: IndicatorData = {
-      byCountry,
-      years: [STATIC_YEAR],
-      minYear: STATIC_YEAR,
-      maxYear: STATIC_YEAR,
-      bestYear: STATIC_YEAR,
-      isStatic: true,
-    }
-    cache.set(ind.id, result)
-    return result
+    g.items.push(ind)
   }
-
-  // World Bank – stáhneme rozsah let a uložíme všechny hodnoty po letech
-  const url =
-    `https://api.worldbank.org/v2/country/all/indicator/${ind.code}` +
-    `?format=json&per_page=20000&date=1995:2024`
-  const json = await fetch(url).then((r) => r.json())
-  const rows: any[] = Array.isArray(json) && json.length > 1 ? json[1] : []
-
-  for (const row of rows) {
-    const iso3: string = row.countryiso3code
-    if (!iso3 || iso3.length !== 3 || row.value == null) continue
-    const year = Number(row.date)
-    ;(byCountry[iso3] ??= {})[year] = Number(row.value)
-    coverage[year] = (coverage[year] ?? 0) + 1
-  }
-
-  const years = Object.keys(coverage).map(Number).sort((a, b) => a - b)
-  // výchozí rok = nejnovější dostupný rok s daty
-  const defaultYear = years[years.length - 1] ?? STATIC_YEAR
-
-  const result: IndicatorData = {
-    byCountry,
-    years,
-    minYear: years[0] ?? STATIC_YEAR,
-    maxYear: years[years.length - 1] ?? STATIC_YEAR,
-    bestYear: defaultYear,
-    isStatic: false,
-  }
-  cache.set(ind.id, result)
-  return result
-}
-
-// Hodnota pro zemi v daném roce (přesně daný rok, jinak null)
-export function valueAt(
-  d: IndicatorData | null,
-  iso3: string,
-  year: number
-): number | null {
-  const v = d?.byCountry[iso3]?.[year]
-  return v == null ? null : v
-}
-
-// Formátování hodnoty pro zobrazení
-export function formatValue(value: number, ind: Indicator): string {
-  const decimals = ind.decimals ?? 0
-  const big = ind.id === 'gdp' || ind.id === 'population'
-  if (big && Math.abs(value) >= 1e9) {
-    return (value / 1e9).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) + ' mld'
-  }
-  if (big && Math.abs(value) >= 1e6) {
-    return (value / 1e6).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) + ' mil'
-  }
-  return value.toLocaleString('cs-CZ', { maximumFractionDigits: decimals })
+  return groups
 }
