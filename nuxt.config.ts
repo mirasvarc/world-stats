@@ -19,6 +19,10 @@ export default defineNuxtConfig({
           content:
             'Interaktivní mapa světa – vyber statistiku, klikni na zemi a porovnej ostatní země.',
         },
+        { name: 'theme-color', content: '#0f172a' },
+      ],
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
       ],
     },
   },
