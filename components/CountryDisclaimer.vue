@@ -1,13 +1,16 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+const { t } = useI18n()
+</script>
 
 <template>
   <div class="disclaimer">
-    Za správnost a úplnost dat neručíme.
+    {{ t('disclaimer.text') }}
     <span class="sep">·</span>
-    Zdroje:
+    {{ t('disclaimer.sources') }}
     <a href="https://data.worldbank.org/" target="_blank" rel="noopener noreferrer">World Bank Open Data</a>,
+    <a href="https://ec.europa.eu/eurostat" target="_blank" rel="noopener noreferrer">Eurostat</a>,
     <a href="https://github.com/johan/world.geo.json" target="_blank" rel="noopener noreferrer">world.geo.json</a>.
-    Průměrná mzda je orientační odhad.
+    {{ t('disclaimer.avgWage') }}
   </div>
 </template>
 

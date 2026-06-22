@@ -7,9 +7,28 @@ import type { Ref } from 'vue'
 import { useWorldStats } from './useWorldStats'
 import { useGeo } from './useGeo'
 import { useColorScale } from './useColorScale'
-import { valueAt } from './useStatsData'
+import { loadIndicatorData } from './useStatsData'
+import { getIndicator } from './useIndicators'
 import { formatValue } from './useFormat'
 import { isEuropean } from './useContinents'
+import { useLabels } from './useLabels'
+
+// Po prvním načtení v nečinnosti předehřejeme cache nejčastějších statistik,
+// aby přepnutí na ně bylo okamžité (bez čekání na síť).
+const PREFETCH_IDS = ['gdp_pc', 'population', 'life', 'inflation', 'unemployment']
+
+function prefetchPopular(region: 'world' | 'europe', skipId: string) {
+  const run = () => {
+    for (const id of PREFETCH_IDS) {
+      if (id === skipId) continue
+      const ind = getIndicator(id, region)
+      if (ind) loadIndicatorData(ind).catch(() => {}) // tichý best-effort
+    }
+  }
+  const ric = (globalThis as any).requestIdleCallback
+  if (typeof ric === 'function') ric(run, { timeout: 3000 })
+  else setTimeout(run, 1500)
+}
 
 const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
 const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
@@ -25,6 +44,8 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
   const s = useWorldStats()
   const geo = useGeo()
   const { styleFor } = useColorScale()
+  const { t } = useI18n()
+  const { unit } = useLabels()
 
   let L: any = null
   let map: any = null
@@ -34,12 +55,15 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
   /** obsah tooltipu u kurzoru – aktuální hodnota země ve zvoleném roce */
   function tooltipHtml(iso3: string): string {
     const name = geo.nameFor(iso3)
-    const v = valueAt(s.data.value, iso3, s.selectedYear.value)
-    const inner =
-      v != null
-        ? `<span class="tip-val">${formatValue(v, s.currentIndicator.value)} ${s.currentIndicator.value.unit}</span>`
-        : `<span class="tip-nodata">žádná data</span>`
-    return `${name}<br>${inner}`
+    const eff = s.effectiveValue(iso3)
+    const ind = s.displayIndicator.value
+    if (!eff) return `${name}<br><span class="tip-nodata">${t('panel.noData')}</span>`
+    const u = unit(s.currentIndicator.value, s.perCapitaActive.value)
+    const yearNote =
+      eff.exact || eff.year === s.selectedYear.value
+        ? ''
+        : ` <span class="tip-nodata">(${eff.year})</span>`
+    return `${name}<br><span class="tip-val">${formatValue(eff.value, ind)} ${u}</span>${yearNote}`
   }
 
   function restyle() {
@@ -115,21 +139,31 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
     }).addTo(map)
 
     try {
+      // GeoJSON (obrysy) a data indikátoru jsou nezávislé → načítáme paralelně.
+      const dataLoad = s.load(s.selectedIndicatorId.value, s.initialYear)
       await geo.loadGeo()
-      await s.load(s.selectedIndicatorId.value, s.initialYear)
 
-      // země z URL
-      if (s.initialCountry && geo.isRealCountry(s.initialCountry)) {
-        s.selectCountry(s.initialCountry)
-      }
-
+      // Obrysy vykreslíme hned po GeoJSONu (ještě před daty) – uživatel vidí mapu
+      // okamžitě (zatím šedou) a po dotažení dat se jen přebarví. styleFor zvládá
+      // i stav bez dat (value == null → šedá), takže předčasné vykreslení je bezpečné.
       geoLayer = L.geoJSON(geo.geojson.value, {
         style: (f: any) => styleFor(f.id),
         onEachFeature,
       }).addTo(map)
 
+      // země z URL (lze vybrat hned, k vykreslení výběru stačí obrysy)
+      if (s.initialCountry && geo.isRealCountry(s.initialCountry)) {
+        s.selectCountry(s.initialCountry)
+      }
       if (s.region.value === 'europe' && !s.selectedIso3.value) fitRegion()
       else focusOn(s.selectedIso3.value)
+
+      // dobarvení po dotažení dat
+      await dataLoad
+      restyle()
+
+      // v nečinnosti předehřát cache nejčastějších statistik
+      prefetchPopular(s.region.value, s.selectedIndicatorId.value)
     } catch (e: any) {
       s.errorMsg.value = 'Nepodařilo se načíst mapu/data: ' + (e?.message ?? e)
       s.loading.value = false
@@ -149,6 +183,8 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
   })
   watch(s.selectedYear, restyle)
   watch(s.selectedIso3, restyle)
+  // per-capita / reference (medián) / dotažení populace → překreslit obarvení
+  watch([s.perCapita, s.referenceMode, s.populationData], restyle)
   // přepnutí regionu (Svět/Evropa) → načíst data, překreslit a přiblížit výřez
   watch(s.region, async () => {
     await s.load()

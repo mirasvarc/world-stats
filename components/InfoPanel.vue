@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { useWorldStats } from '~/composables/useWorldStats'
 import { useRanking } from '~/composables/useRanking'
+import { useCountryMeta } from '~/composables/useCountryMeta'
+import { useLabels } from '~/composables/useLabels'
 import { formatValue } from '~/composables/useFormat'
 
 const {
+  region,
   currentIndicator,
+  displayIndicator,
+  perCapitaActive,
+  setPerCapita,
   selectedCountry,
   hoverInfo,
   selectedYear,
@@ -12,8 +18,17 @@ const {
   openChart,
   selectedNoData,
   clearSelection,
+  referenceMode,
+  setReferenceMedian,
+  regionMedianValue,
 } = useWorldStats()
 const { selectedRank } = useRanking()
+const { meta } = useCountryMeta()
+const { t } = useI18n()
+const { label, unit } = useLabels()
+
+const indLabel = computed(() => label(currentIndicator.value, { perCapita: perCapitaActive.value }))
+const indUnit = computed(() => unit(currentIndicator.value, perCapitaActive.value))
 
 // sbalení panelu (hlavně na mobilu, kde je panel jako spodní list)
 const collapsed = ref(false)
@@ -23,28 +38,55 @@ const collapsed = ref(false)
   <div class="panel" :class="{ collapsed }">
     <div class="ind-head">
       <span class="ind-head-text">
-        {{ currentIndicator.label }}
-        <span class="ind-unit">[{{ currentIndicator.unit }}]</span>
+        {{ indLabel }}
+        <span class="ind-unit">[{{ indUnit }}]</span>
       </span>
       <button
         class="panel-toggle"
         :aria-expanded="!collapsed"
-        :title="collapsed ? 'Rozbalit' : 'Sbalit'"
+        :title="collapsed ? '▴' : '▾'"
         @click="collapsed = !collapsed"
       >{{ collapsed ? '▴' : '▾' }}</button>
     </div>
 
     <div class="panel-body">
-    <div v-if="!selectedCountry" class="hint">
-      Klikni na zemi. Stane se referenční a ostatní se obarví podle toho, zda jsou
-      <b class="g">lepší</b> nebo <b class="r">horší</b> v roce <b>{{ selectedYear }}</b>.
+    <label v-if="currentIndicator.perCapita" class="pc-toggle">
+      <input
+        type="checkbox"
+        :checked="perCapitaActive"
+        @change="setPerCapita(($event.target as HTMLInputElement).checked)"
+      />
+      {{ t('panel.perCapita') }}
+    </label>
+    <!-- Reference = medián regionu -->
+    <div v-if="referenceMode === 'median'">
+      <div class="panel-title">{{ t('panel.referenceMedian') }} · {{ selectedYear }}</div>
+      <div class="country-name-row">
+        <span class="country-name">{{ region === 'europe' ? t('panel.medianEurope') : t('panel.medianWorld') }}</span>
+        <button class="close-btn" :title="t('panel.cancelMedian')" @click="setReferenceMedian(false)">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12 M18 6L6 18" />
+          </svg>
+        </button>
+      </div>
+      <div class="country-val">
+        <template v-if="!ready"><span class="muted">{{ t('panel.loading') }}</span></template>
+        <template v-else-if="regionMedianValue != null">
+          {{ formatValue(regionMedianValue, displayIndicator) }}
+          <span class="unit">{{ indUnit }}</span>
+        </template>
+        <template v-else>{{ t('panel.noData') }}</template>
+      </div>
+      <div class="hint sm">{{ t('panel.medianHint') }}</div>
     </div>
-    <div v-else>
-      <div class="panel-title">Referenční země · {{ selectedYear }}</div>
+
+    <!-- Reference = vybraná země -->
+    <div v-else-if="selectedCountry">
+      <div class="panel-title">{{ t('panel.referenceCountry') }} · {{ selectedYear }}</div>
       <div class="country-name-row">
         <span class="country-name">{{ selectedCountry.name }}</span>
         <div class="country-actions">
-          <button class="chart-btn" :disabled="!ready" title="Zobrazit vývoj v čase" @click="openChart()">
+          <button class="chart-btn" :disabled="!ready" :title="t('panel.chartTitle')" @click="openChart()">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path
                 fill="none" stroke="currentColor" stroke-width="2"
@@ -53,7 +95,7 @@ const collapsed = ref(false)
               />
             </svg>
           </button>
-          <button class="close-btn" title="Zrušit výběr země" @click="clearSelection()">
+          <button class="close-btn" :title="t('panel.cancelSelect')" @click="clearSelection()">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path
                 fill="none" stroke="currentColor" stroke-width="2"
@@ -65,49 +107,66 @@ const collapsed = ref(false)
         </div>
       </div>
       <div class="country-val">
-        <template v-if="!ready"><span class="muted">Načítám…</span></template>
+        <template v-if="!ready"><span class="muted">{{ t('panel.loading') }}</span></template>
         <template v-else-if="selectedCountry.value != null">
-          {{ formatValue(selectedCountry.value, currentIndicator) }}
-          <span class="unit">{{ currentIndicator.unit }}</span>
+          {{ formatValue(selectedCountry.value, displayIndicator) }}
+          <span class="unit">{{ indUnit }}</span>
+          <span v-if="!selectedCountry.exact && selectedCountry.valueYear" class="year-note">
+            {{ t('panel.dataFromYear', { year: selectedCountry.valueYear }) }}
+          </span>
         </template>
-        <template v-else>žádná data pro {{ selectedYear }}</template>
+        <template v-else>{{ t('panel.noData') }}</template>
       </div>
       <div v-if="ready && selectedRank" class="rank-badge">
-        Pořadí: <b>#{{ selectedRank.rank }}</b> z {{ selectedRank.total }}
+        {{ t('panel.rank', { rank: selectedRank.rank, total: selectedRank.total }) }}
+      </div>
+
+      <div v-if="meta" class="country-meta">
+        <img
+          v-if="meta.flagUrl"
+          :src="meta.flagUrl"
+          :alt="selectedCountry.name"
+          class="meta-flag"
+          loading="lazy"
+          @error="($event.target as HTMLImageElement).style.display = 'none'"
+        />
+        <dl class="meta-list">
+          <template v-if="meta.capital"><dt>{{ t('panel.capital') }}</dt><dd>{{ meta.capital }}</dd></template>
+          <template v-if="meta.region"><dt>{{ t('panel.region') }}</dt><dd>{{ meta.region }}</dd></template>
+          <template v-if="meta.incomeLevel"><dt>{{ t('panel.income') }}</dt><dd>{{ meta.incomeLevel }}</dd></template>
+        </dl>
       </div>
 
       <div v-if="selectedNoData" class="nodata-warn">
         <template v-if="selectedNoData.hasAnyYear">
-          <b>{{ selectedNoData.name }}</b> nemá pro statistiku
-          „{{ currentIndicator.label }}" data v roce <b>{{ selectedYear }}</b>,
-          takže mapu nelze podle ní porovnat.
-          <button
-            v-if="selectedNoData.nearestYear"
-            class="nodata-btn"
-            @click="selectedYear = selectedNoData.nearestYear"
-          >Přejít na rok {{ selectedNoData.nearestYear }} (nejbližší s daty)</button>
+          {{ t('panel.noDataYear', { country: selectedNoData.name, stat: indLabel, year: selectedYear }) }}
         </template>
         <template v-else>
-          <b>{{ selectedNoData.name }}</b> nemá pro statistiku
-          „{{ currentIndicator.label }}" žádná data, takže mapu nelze podle ní
-          porovnat. Vyber jinou zemi nebo statistiku.
+          {{ t('panel.noDataNone', { country: selectedNoData.name, stat: indLabel }) }}
         </template>
       </div>
+    </div>
+
+    <!-- Bez reference -->
+    <div v-else class="hint">
+      {{ t('panel.hintIntro') }}
+      <button class="median-btn" @click="setReferenceMedian(true)">{{ t('panel.compareMedian') }}</button>
     </div>
 
     <div v-if="ready && hoverInfo" class="hover">
       <b>{{ hoverInfo.name }}</b>:
       <template v-if="hoverInfo.value != null">
-        {{ formatValue(hoverInfo.value, currentIndicator) }} {{ currentIndicator.unit }}
+        {{ formatValue(hoverInfo.value, displayIndicator) }} {{ indUnit }}
+        <span v-if="!hoverInfo.exact && hoverInfo.valueYear" class="year-note">({{ hoverInfo.valueYear }})</span>
       </template>
-      <template v-else>žádná data</template>
+      <template v-else>{{ t('panel.noData') }}</template>
     </div>
 
     <MapLegend />
     <RankingPanel />
 
     <div v-if="currentIndicator.source === 'static'" class="note">
-      ⚠️ Průměrná mzda jsou orientační odhady (čistá měsíční mzda, USD), ne přesná data.
+      {{ t('panel.staticNote') }}
     </div>
     </div>
   </div>
@@ -157,6 +216,47 @@ const collapsed = ref(false)
 .hint { color: var(--text-2); line-height: 1.4; }
 .hint .g { color: var(--good); }
 .hint .r { color: var(--bad); }
+.hint.sm { font-size: 0.8rem; margin-top: 0.4rem; }
+.pc-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  margin-bottom: 0.7rem;
+  cursor: pointer;
+}
+.pc-toggle input { cursor: pointer; }
+.median-btn {
+  display: block;
+  margin-top: 0.6rem;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.median-btn:hover { background: var(--accent); color: #fff; }
+.year-note { font-size: 0.72rem; color: var(--text-muted); font-weight: 400; }
+.country-meta {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  align-items: flex-start;
+}
+.meta-flag {
+  width: 40px;
+  height: auto;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.meta-list { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 0.5rem; font-size: 0.78rem; }
+.meta-list dt { color: var(--text-3); }
+.meta-list dd { margin: 0; color: var(--text-2); }
 .panel-title {
   font-size: 0.75rem;
   text-transform: uppercase;

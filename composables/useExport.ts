@@ -19,22 +19,33 @@ function csvCell(s: string): string {
   return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
+export interface CsvOpts {
+  /** lokalizovaný název statistiky a jednotka (do hlavičky) */
+  label: string
+  unit: string
+  year: number
+  /** lokalizované názvy sloupců */
+  cols: { rank: string; country: string; continent: string }
+  /** překlad názvu kontinentu */
+  cont: (c: string) => string
+}
+
 /** Žebříček → CSV (oddělovač `;`, BOM kvůli Excelu, desetinná čárka). */
-export function exportRankingCsv(rows: RankRow[], ind: Indicator, year: number) {
-  const header = ['Pořadí', 'Země', 'Kontinent', `${ind.label} [${ind.unit}]`]
+export function exportRankingCsv(rows: RankRow[], ind: Indicator, opts: CsvOpts) {
+  const header = [opts.cols.rank, opts.cols.country, opts.cols.continent, `${opts.label} [${opts.unit}]`]
   const lines = [header.map(csvCell).join(';')]
   for (const r of rows) {
     lines.push(
       [
         String(r.rank),
         csvCell(r.name),
-        csvCell(r.continent),
+        csvCell(opts.cont(r.continent)),
         csvCell(formatValue(r.value, ind)),
       ].join(';')
     )
   }
   const csv = '﻿' + lines.join('\r\n')
-  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${ind.id}-${year}.csv`)
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${ind.id}-${opts.year}.csv`)
 }
 
 /** Naklonuje SVG grafu, vloží styly os a bílé pozadí, vrátí XML řetězec. */

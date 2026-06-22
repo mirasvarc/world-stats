@@ -25,6 +25,12 @@ export interface Indicator {
   filters?: Record<string, string>
   /** počet desetinných míst při zobrazení */
   decimals?: number
+  /**
+   * Pokud je vyplněno, lze metriku zobrazit „na obyvatele" (hodnota / populace).
+   * Vhodné pro absolutní metriky (HDP celkové, turistické příjezdy), kde by jinak
+   * dominovaly velké země. Určuje jednotku a formát výsledné per-capita hodnoty.
+   */
+  perCapita?: { unit: string; decimals?: number }
 }
 
 export interface IndicatorGroup {
@@ -34,7 +40,7 @@ export interface IndicatorGroup {
 
 export const INDICATORS: Indicator[] = [
   // ── Ekonomika ───────────────────────────────────────────────
-  { id: 'gdp', group: 'Ekonomika', label: 'HDP (celkové)', unit: 'USD', higherIsBetter: true, source: 'worldbank', code: 'NY.GDP.MKTP.CD', decimals: 0 },
+  { id: 'gdp', group: 'Ekonomika', label: 'HDP (celkové)', unit: 'USD', higherIsBetter: true, source: 'worldbank', code: 'NY.GDP.MKTP.CD', decimals: 0, perCapita: { unit: 'USD / obyv.', decimals: 0 } },
   { id: 'gdp_pc', group: 'Ekonomika', label: 'HDP na obyvatele', unit: 'USD', higherIsBetter: true, source: 'worldbank', code: 'NY.GDP.PCAP.CD', decimals: 0 },
   { id: 'gdp_pc_ppp', group: 'Ekonomika', label: 'HDP na obyvatele (PPP)', unit: 'mezinár. $', higherIsBetter: true, source: 'worldbank', code: 'NY.GDP.PCAP.PP.CD', decimals: 0 },
   { id: 'gdp_growth', group: 'Ekonomika', label: 'Růst HDP', unit: '%', higherIsBetter: true, source: 'worldbank', code: 'NY.GDP.MKTP.KD.ZG', decimals: 1 },
@@ -47,8 +53,8 @@ export const INDICATORS: Indicator[] = [
   { id: 'gov_debt', group: 'Ekonomika', label: 'Státní dluh', unit: '% HDP', higherIsBetter: false, source: 'worldbank', code: 'GC.DOD.TOTL.GD.ZS', decimals: 1 },
   { id: 'fdi', group: 'Ekonomika', label: 'Přímé zahraniční investice', unit: '% HDP', higherIsBetter: true, source: 'worldbank', code: 'BX.KLT.DINV.WD.GD.ZS', decimals: 1 },
   { id: 'rnd', group: 'Ekonomika', label: 'Výdaje na výzkum a vývoj', unit: '% HDP', higherIsBetter: true, source: 'worldbank', code: 'GB.XPD.RSDV.GD.ZS', decimals: 2 },
-  { id: 'military', group: 'Ekonomika', label: 'Vojenské výdaje', unit: '% HDP', higherIsBetter: true, source: 'worldbank', code: 'MS.MIL.XPND.GD.ZS', decimals: 1 },
-  { id: 'tourism', group: 'Ekonomika', label: 'Turistické příjezdy', unit: 'příjezdů/rok', higherIsBetter: true, source: 'worldbank', code: 'ST.INT.ARVL', decimals: 0 },
+  { id: 'military', group: 'Ekonomika', label: 'Vojenské výdaje', unit: '% HDP', higherIsBetter: false, source: 'worldbank', code: 'MS.MIL.XPND.GD.ZS', decimals: 1 },
+  { id: 'tourism', group: 'Ekonomika', label: 'Turistické příjezdy', unit: 'příjezdů/rok', higherIsBetter: true, source: 'worldbank', code: 'ST.INT.ARVL', decimals: 0, perCapita: { unit: 'příjezdů / obyv.', decimals: 2 } },
   { id: 'poverty', group: 'Ekonomika', label: 'Extrémní chudoba (pod $2,15/den)', unit: '%', higherIsBetter: false, source: 'worldbank', code: 'SI.POV.DDAY', decimals: 1 },
 
   // ── Obyvatelstvo ────────────────────────────────────────────

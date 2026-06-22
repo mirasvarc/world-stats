@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { useWorldStats } from '~/composables/useWorldStats'
+import { useLabels } from '~/composables/useLabels'
 import { CHART, PAD } from '~/composables/useChartModel'
 import { formatValue } from '~/composables/useFormat'
 
 // `chart` je výstup useChartModel().chart ve variantě { enough: true }
 const props = defineProps<{ chart: any }>()
 
-const { currentIndicator } = useWorldStats()
+const { currentIndicator, displayIndicator, perCapitaActive } = useWorldStats()
+const { unit } = useLabels()
+const indUnit = computed(() => unit(currentIndicator.value, perCapitaActive.value))
 
 const svgRef = ref<SVGSVGElement | null>(null)
 const hoverYear = ref<number | null>(null)
@@ -41,7 +44,7 @@ const cross = computed(() => {
 
   const x = pts[0].x
   const lines = pts.map(
-    (p) => `${p.name}: ${formatValue(p.value, currentIndicator.value)} ${currentIndicator.value.unit}`
+    (p) => `${p.name}: ${formatValue(p.value, displayIndicator.value)} ${indUnit.value}`
   )
   const maxLen = Math.max(yr.toString().length + 2, ...lines.map((l) => l.length))
   const boxW = Math.min(260, 22 + maxLen * 6.2)
@@ -119,7 +122,7 @@ const cross = computed(() => {
           r="2.5"
           :fill="ser.color"
         >
-          <title>{{ ser.name }} · {{ c.year }}: {{ formatValue(c.value, currentIndicator) }} {{ currentIndicator.unit }}</title>
+          <title>{{ ser.name }} · {{ c.year }}: {{ formatValue(c.value, displayIndicator) }} {{ indUnit }}</title>
         </circle>
       </template>
     </g>

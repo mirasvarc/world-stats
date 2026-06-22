@@ -4,6 +4,18 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   ssr: true,
   css: ['~/assets/css/main.css'],
+  modules: ['@nuxtjs/i18n'],
+  i18n: {
+    defaultLocale: 'cs',
+    // čeština na „/", angličtina na „/en" – zachová stávající sdílené odkazy bez prefixu
+    strategy: 'prefix_except_default',
+    detectBrowserLanguage: false,
+    bundle: { optimizeTranslationDirective: false },
+    locales: [
+      { code: 'cs', language: 'cs-CZ', name: 'Čeština', file: 'cs.ts' },
+      { code: 'en', language: 'en-US', name: 'English', file: 'en.ts' },
+    ],
+  },
   // Deploy na Cloudflare Workers (Nitro modul-worker + statická aktiva přes ASSETS).
   // Lze přepsat přes env NITRO_PRESET.
   nitro: {

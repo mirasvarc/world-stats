@@ -2,13 +2,16 @@
 import { useWorldStats } from '~/composables/useWorldStats'
 import { useRanking } from '~/composables/useRanking'
 import { useColorScale } from '~/composables/useColorScale'
+import { useLabels } from '~/composables/useLabels'
 import { formatValue, normalizeText } from '~/composables/useFormat'
 import { CONTINENTS } from '~/composables/useContinents'
 import { exportRankingCsv } from '~/composables/useExport'
 
-const { region, selectedIso3, currentIndicator, selectedYear, ready, focusCountry } = useWorldStats()
+const { region, selectedIso3, currentIndicator, displayIndicator, perCapitaActive, selectedYear, ready, focusCountry } = useWorldStats()
 const { ranking } = useRanking()
 const { colorFor } = useColorScale()
+const { t } = useI18n()
+const { label, unit, continent: contLabel } = useLabels()
 
 const search = ref('')
 const continent = ref<string>('') // '' = vše
@@ -24,7 +27,13 @@ const filtered = computed(() => {
 })
 
 function onExport() {
-  exportRankingCsv(filtered.value, currentIndicator.value, selectedYear.value)
+  exportRankingCsv(filtered.value, displayIndicator.value, {
+    label: label(currentIndicator.value, { perCapita: perCapitaActive.value }),
+    unit: unit(currentIndicator.value, perCapitaActive.value),
+    year: selectedYear.value,
+    cols: { rank: t('ranking.colRank'), country: t('ranking.colCountry'), continent: t('ranking.colContinent') },
+    cont: contLabel,
+  })
 }
 </script>
 
@@ -32,25 +41,25 @@ function onExport() {
   <div class="rank-wrap">
     <div class="rank-head">
       <span>
-        Žebříček · {{ selectedYear }}
-        <span class="rank-sub">({{ ranking.length }} zemí, #1 = nejlepší)</span>
+        {{ t('ranking.header', { year: selectedYear }) }}
+        <span class="rank-sub">{{ t('ranking.countries', { n: ranking.length }) }}</span>
       </span>
       <button
         v-if="ready && filtered.length"
         class="rank-csv"
-        title="Stáhnout jako CSV"
+        :title="t('ranking.csvTitle')"
         @click="onExport"
-      >⬇ CSV</button>
+      >{{ t('ranking.csv') }}</button>
     </div>
 
     <div v-if="ready" class="rank-filters">
       <div class="rank-search">
-        <input v-model="search" type="text" placeholder="Hledat zemi…" spellcheck="false" />
+        <input v-model="search" type="text" :placeholder="t('ranking.search')" spellcheck="false" />
         <button v-if="search" class="rank-search-clear" @click="search = ''">✕</button>
       </div>
-      <select v-if="region !== 'europe'" v-model="continent" class="rank-cont" aria-label="Filtr kontinentu">
-        <option value="">Všechny kontinenty</option>
-        <option v-for="c in CONTINENTS" :key="c" :value="c">{{ c }}</option>
+      <select v-if="region !== 'europe'" v-model="continent" class="rank-cont" :aria-label="t('ranking.allContinents')">
+        <option value="">{{ t('ranking.allContinents') }}</option>
+        <option v-for="c in CONTINENTS" :key="c" :value="c">{{ contLabel(c) }}</option>
       </select>
     </div>
 
@@ -63,7 +72,7 @@ function onExport() {
       </div>
     </div>
 
-    <div v-else-if="filtered.length === 0" class="muted rank-loading">Nic nenalezeno.</div>
+    <div v-else-if="filtered.length === 0" class="muted rank-loading">{{ t('ranking.nothing') }}</div>
     <ol v-else class="rank-list">
       <li
         v-for="row in filtered"
@@ -74,7 +83,7 @@ function onExport() {
         <span class="rank-num">{{ row.rank }}.</span>
         <span class="rank-dot" :style="{ background: colorFor(row.iso3) }" />
         <span class="rank-name">{{ row.name }}</span>
-        <span class="rank-val">{{ formatValue(row.value, currentIndicator) }}</span>
+        <span class="rank-val">{{ formatValue(row.value, displayIndicator) }}</span>
       </li>
     </ol>
   </div>

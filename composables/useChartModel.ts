@@ -43,6 +43,13 @@ export function useChartModel() {
   /** zobrazit linku světového mediánu? */
   const showMedian = ref(true)
 
+  // Hodnota země/roku pro graf: přesný rok (bez fallbacku), ale s případným
+  // přepočtem na obyvatele – sjednoceno s mapou/žebříčkem přes effectiveValue.
+  const valAt = (iso: string, y: number): number | null => {
+    const e = s.effectiveValue(iso, y, { fallback: false })
+    return e ? e.value : null
+  }
+
   /** země v grafu: referenční (první) + porovnávané, bez duplicit */
   const chartIsos = computed(() =>
     Array.from(
@@ -57,7 +64,10 @@ export function useChartModel() {
     let min = Infinity
     for (const iso of chartIsos.value) {
       const by = d.byCountry[iso] || {}
-      for (const k in by) min = Math.min(min, by[k])
+      for (const k in by) {
+        const v = valAt(iso, Number(k))
+        if (v != null) min = Math.min(min, v)
+      }
     }
     return min !== Infinity && min > 0
   })
@@ -82,7 +92,8 @@ export function useChartModel() {
         const pts = Object.keys(byYear)
           .map(Number)
           .sort((a, b) => a - b)
-          .map((y) => ({ year: y, value: byYear[y] }))
+          .map((y) => ({ year: y, value: valAt(iso, y) }))
+          .filter((p): p is { year: number; value: number } => p.value != null)
         return { iso, name: nameFor(iso), color: PALETTE[idx % PALETTE.length], pts }
       })
       .filter((ser) => ser.pts.length > 0)
@@ -106,7 +117,7 @@ export function useChartModel() {
         for (const iso in d.byCountry) {
           if (!isRealCountry(iso)) continue
           if (europe && !isEuropean(iso)) continue
-          const v = d.byCountry[iso][yr]
+          const v = valAt(iso, yr)
           if (v != null) vals.push(v)
         }
         if (vals.length) medianPts.push({ year: yr, value: median(vals) })

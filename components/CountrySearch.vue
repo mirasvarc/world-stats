@@ -7,6 +7,7 @@ import { isEuropean } from '~/composables/useContinents'
 
 const { region, focusCountry } = useWorldStats()
 const { nameMap, countryIds } = useGeo()
+const { t } = useI18n()
 
 const query = ref('')
 const open = ref(false)
@@ -73,9 +74,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
     <input
       v-model="query"
       type="text"
-      placeholder="Najít zemi…"
+      :placeholder="t('header.searchCountry')"
       spellcheck="false"
-      aria-label="Najít zemi"
+      :aria-label="t('header.searchCountry')"
       @input="onInput"
       @focus="open = true"
       @keydown="onKeydown"

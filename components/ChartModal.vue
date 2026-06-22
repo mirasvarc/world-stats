@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useWorldStats } from '~/composables/useWorldStats'
 import { useChartModel } from '~/composables/useChartModel'
+import { useLabels } from '~/composables/useLabels'
 import { formatValue, formatPercent } from '~/composables/useFormat'
 import { exportChartSvg, exportChartPng } from '~/composables/useExport'
 
@@ -11,11 +12,16 @@ const {
   selectedCountry,
   selectedIndicatorId,
   currentIndicator,
+  displayIndicator,
+  perCapitaActive,
   selectedYear,
   ready,
   yScaleMode,
   compareIsos,
 } = useWorldStats()
+const { t } = useI18n()
+const { unit } = useLabels()
+const indUnit = computed(() => unit(currentIndicator.value, perCapitaActive.value))
 
 const {
   chart,
@@ -67,34 +73,34 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <div class="modal-title">{{ selectedCountry.name }}</div>
             <div class="modal-stat">
               <IndicatorSelect v-model="selectedIndicatorId" class="modal-stat-select" />
-              <span class="ind-unit">[{{ currentIndicator.unit }}]</span>
+              <span class="ind-unit">[{{ indUnit }}]</span>
             </div>
           </div>
-          <button class="modal-close" title="Zavřít (Esc)" @click="closeChart()">✕</button>
+          <button class="modal-close" :title="t('chart.close')" @click="closeChart()">✕</button>
         </div>
 
-        <div v-if="!ready" class="modal-empty">Načítám data…</div>
+        <div v-if="!ready" class="modal-empty">{{ t('panel.loading') }}</div>
 
         <template v-else>
           <!-- toolbar: měřítko osy + medián + přidání země + export -->
           <div class="modal-toolbar">
             <div class="scale-toggle">
-              <span class="tl-label">Osa Y:</span>
+              <span class="tl-label">{{ t('chart.axisY') }}</span>
               <button :class="{ on: yScaleMode === 'linear' }" @click="yScaleMode = 'linear'">
-                Lineární
+                {{ t('chart.linear') }}
               </button>
               <button
                 :class="{ on: yScaleMode === 'log' }"
                 :disabled="!logFeasible"
-                :title="logFeasible ? '' : 'Log není dostupný pro nekladné hodnoty'"
+                :title="logFeasible ? '' : t('chart.logUnavailable')"
                 @click="yScaleMode = 'log'"
               >
-                Log
+                {{ t('chart.log') }}
               </button>
             </div>
 
             <button class="median-toggle" :class="{ on: showMedian }" @click="showMedian = !showMedian">
-              <span class="median-dash" /> {{ region === 'europe' ? 'medián Evropy' : 'medián světa' }}
+              <span class="median-dash" /> {{ region === 'europe' ? t('panel.medianEurope') : t('panel.medianWorld') }}
             </button>
 
             <div class="add-country">
@@ -103,7 +109,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                 @change="onAddCountry"
               >
                 <option value="">
-                  {{ compareIsos.length >= MAX_COMPARE ? `Max. ${MAX_COMPARE} zemí` : '+ Přidat zemi k porovnání' }}
+                  {{ compareIsos.length >= MAX_COMPARE ? t('chart.maxCountries', { n: MAX_COMPARE }) : t('chart.addCountry') }}
                 </option>
                 <option v-for="c in comparableCountries" :key="c.iso3" :value="c.iso3">
                   {{ c.name }}
@@ -112,8 +118,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             </div>
 
             <div class="export-grp">
-              <button title="Stáhnout jako PNG" @click="onExportPng">⬇ PNG</button>
-              <button title="Stáhnout jako SVG" @click="onExportSvg">SVG</button>
+              <button :title="t('chart.pngTitle')" @click="onExportPng">⬇ PNG</button>
+              <button :title="t('chart.svgTitle')" @click="onExportSvg">SVG</button>
             </div>
           </div>
 
@@ -130,14 +136,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
               <button
                 v-if="si !== 0 && !ser.isMedian"
                 class="leg-x"
-                title="Odebrat"
+                :title="t('chart.remove')"
                 @click="removeCompare(ser.iso)"
               >✕</button>
             </span>
           </div>
 
           <div v-if="!chart || !chart.enough" class="modal-empty">
-            Pro tuto zemi a statistiku není dost dat na graf (potřeba aspoň 2 roky).
+            {{ t('chart.notEnough') }}
           </div>
 
           <template v-else>
@@ -147,8 +153,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                 {{ chart.change >= 0 ? '▲' : '▼' }} {{ formatPercent(chart.change) }}
               </b>
               <span class="modal-change-vals">
-                ({{ formatValue(chart.first, currentIndicator) }} →
-                {{ formatValue(chart.last, currentIndicator) }} {{ currentIndicator.unit }})
+                ({{ formatValue(chart.first, displayIndicator) }} →
+                {{ formatValue(chart.last, displayIndicator) }} {{ indUnit }})
               </span>
             </div>
 
@@ -157,8 +163,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             </div>
 
             <div class="modal-foot">
-              <span class="dot-amber" /> zvolený rok ({{ selectedYear }}) na referenční zemi ·
-              {{ chart.useLog ? 'logaritmická' : 'lineární' }} osa · Data: World Bank
+              <span class="dot-amber" /> {{ t('chart.footYear', { year: selectedYear }) }} ·
+              {{ chart.useLog ? t('chart.axisLog') : t('chart.axisLin') }} {{ t('chart.axisWord') }} · {{ t('chart.dataSource') }}
             </div>
           </template>
         </template>

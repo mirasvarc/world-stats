@@ -3,6 +3,7 @@ import { useWorldStats } from '~/composables/useWorldStats'
 
 const { isStatic, minYear, maxYear, selectedYear, playing, togglePlay, stopPlay } =
   useWorldStats()
+const { t } = useI18n()
 
 // ruční tažení posuvníku zastaví přehrávání
 function onManual() {
@@ -14,8 +15,8 @@ function onManual() {
   <div v-if="!isStatic" class="yearbar">
     <button
       class="play-btn"
-      :title="playing ? 'Pozastavit' : 'Přehrát vývoj v čase'"
-      :aria-label="playing ? 'Pozastavit' : 'Přehrát'"
+      :title="playing ? t('year.pause') : t('year.play')"
+      :aria-label="playing ? t('year.pause') : t('year.play')"
       @click="togglePlay"
     >
       <svg v-if="playing" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -37,7 +38,7 @@ function onManual() {
     <span class="year-edge">{{ maxYear }}</span>
     <span class="year-now">{{ selectedYear }}</span>
   </div>
-  <div v-else class="yearbar static-note">Orientační odhad (bez časové řady)</div>
+  <div v-else class="yearbar static-note">{{ t('year.staticNote') }}</div>
 </template>
 
 <style scoped>

@@ -2,9 +2,11 @@
 import { useWorldStats } from '~/composables/useWorldStats'
 import { useShareLink } from '~/composables/useShareLink'
 
-const { region, setRegion, selectedIndicatorId, selectedIso3, clearSelection, darkMode, toggleTheme } =
+const { region, setRegion, selectedIndicatorId, selectedIso3, clearSelection, openScatter, darkMode, toggleTheme } =
   useWorldStats()
 const { copied, copyLink } = useShareLink()
+const { t, locale } = useI18n()
+const switchLocalePath = useSwitchLocalePath()
 
 // Odkaz na repozitář – uprav podle svého GitHub účtu.
 const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
@@ -14,7 +16,7 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
   <header class="topbar">
     <div class="brand">
       <AppLogo class="logo" />
-      Mapa světových statistik
+      {{ t('brand') }}
     </div>
     <div class="controls">
       <div class="region-switch" role="group" aria-label="Region">
@@ -22,28 +24,35 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
           :class="{ active: region === 'world' }"
           :aria-pressed="region === 'world'"
           @click="setRegion('world')"
-        >🌍 Svět</button>
+        >🌍 {{ t('header.regionWorld') }}</button>
         <button
           :class="{ active: region === 'europe' }"
           :aria-pressed="region === 'europe'"
           @click="setRegion('europe')"
-        >🇪🇺 Evropa</button>
+        >🇪🇺 {{ t('header.regionEurope') }}</button>
       </div>
       <label>
-        Statistika:
+        {{ t('header.statistic') }}:
         <IndicatorSelect v-model="selectedIndicatorId" />
       </label>
       <CountrySearch class="hide-mobile" />
       <button v-if="selectedIso3" class="clear" @click="clearSelection()">
-        Zrušit výběr ✕
+        {{ t('header.clearSelection') }} ✕
+      </button>
+      <button class="scatter-open" :title="t('scatter.title')" @click="openScatter()">
+        📊 {{ t('header.correlation') }}
       </button>
       <button class="share" @click="copyLink">
-        {{ copied ? '✓ Zkopírováno' : '🔗 Sdílet odkaz' }}
+        {{ copied ? '✓ ' + t('header.copied') : '🔗 ' + t('header.share') }}
       </button>
+      <div class="lang-switch" role="group" :aria-label="t('header.language')">
+        <NuxtLink :to="switchLocalePath('cs')" :class="{ active: locale === 'cs' }">CZ</NuxtLink>
+        <NuxtLink :to="switchLocalePath('en')" :class="{ active: locale === 'en' }">EN</NuxtLink>
+      </div>
       <button
         class="icon-btn"
-        :title="darkMode ? 'Světlý režim' : 'Tmavý režim'"
-        :aria-label="darkMode ? 'Světlý režim' : 'Tmavý režim'"
+        :title="darkMode ? t('header.light') : t('header.dark')"
+        :aria-label="darkMode ? t('header.light') : t('header.dark')"
         @click="toggleTheme"
       >
         <svg v-if="darkMode" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -61,7 +70,7 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
         :href="GITHUB_URL"
         target="_blank"
         rel="noopener noreferrer"
-        title="Zdrojový kód na GitHubu"
+        :title="t('header.sourceCode')"
         aria-label="GitHub"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -133,6 +142,23 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
   color: #fff;
   font-weight: 600;
 }
+.lang-switch {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.lang-switch a {
+  text-decoration: none;
+  color: #cbd5e1;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.lang-switch a:hover { color: #fff; }
+.lang-switch a.active { background: #2563eb; color: #fff; }
 .controls :deep(select) {
   margin-left: 0.4rem;
   padding: 0.35rem 0.5rem;
@@ -155,6 +181,17 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
 .clear:hover { background: #dc2626; }
 .share { background: #2563eb; }
 .share:hover { background: #1d4ed8; }
+.scatter-open {
+  border: none;
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  color: #fff;
+  background: #7c3aed;
+}
+.scatter-open:hover { background: #6d28d9; }
 .github {
   display: inline-flex;
   align-items: center;

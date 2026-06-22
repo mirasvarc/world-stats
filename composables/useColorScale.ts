@@ -1,35 +1,16 @@
 // Barevná logika mapy: obarvení země podle porovnání s referenční zemí
 // ve zvoleném roce. Sdílená mezi mapou (Leaflet) a tečkami v žebříčku.
 
-import { valueAt } from './useStatsData'
 import { useWorldStats } from './useWorldStats'
 import { useRanking } from './useRanking'
 import { isEuropean } from './useContinents'
+import { scaleColor } from './colorMath'
 
 export interface LeafletStyle {
   fillColor: string
   fillOpacity: number
   color: string
   weight: number
-}
-
-// Plynulá škála zelená → žlutá → červená podle „dobrosti" g ∈ [0,1]
-// (1 = nejlepší = zelená, 0 = nejhorší = červená).
-const SCALE_STOPS = [
-  [239, 68, 68], // #ef4444 červená (nejhorší)
-  [234, 179, 8], // #eab308 žlutá (střed)
-  [34, 197, 94], // #22c55e zelená (nejlepší)
-]
-function scaleColor(g: number): string {
-  const t = Math.max(0, Math.min(1, g)) * 2
-  const i = Math.min(1, Math.floor(t))
-  const f = t - i
-  const a = SCALE_STOPS[i]
-  const b = SCALE_STOPS[i + 1]
-  const r = Math.round(a[0] + (b[0] - a[0]) * f)
-  const gg = Math.round(a[1] + (b[1] - a[1]) * f)
-  const bl = Math.round(a[2] + (b[2] - a[2]) * f)
-  return `rgb(${r}, ${gg}, ${bl})`
 }
 
 export const COLORS = {
@@ -65,13 +46,13 @@ export function useColorScale() {
       return { fillColor: COLORS.noData, fillOpacity: 0.12, color: COLORS.stroke, weight: 0.5 }
     }
 
-    const value = valueAt(s.data.value, iso3, s.selectedYear.value)
+    const eff = s.effectiveValue(iso3)
 
-    if (value == null) {
+    if (eff == null) {
       return { fillColor: COLORS.noData, fillOpacity: 0.6, color: COLORS.stroke, weight: 1 }
     }
-    if (!s.selectedIso3.value) {
-      // Bez vybrané země: obarvit podle absolutní hodnoty (choropleth).
+    if (!s.referenceValue.value) {
+      // Bez reference: obarvit podle absolutní hodnoty (choropleth).
       return {
         fillColor: valueColors.value.get(iso3) ?? COLORS.neutral,
         fillOpacity: 0.7,
@@ -83,12 +64,8 @@ export function useColorScale() {
       return { fillColor: COLORS.selected, fillOpacity: 0.95, color: COLORS.selectedStroke, weight: 2 }
     }
 
-    const threshold = valueAt(s.data.value, s.selectedIso3.value, s.selectedYear.value)
-    if (threshold == null) {
-      return { fillColor: COLORS.noData, fillOpacity: 0.6, color: COLORS.stroke, weight: 1 }
-    }
-
-    const diff = value - threshold
+    const threshold = s.referenceValue.value.value
+    const diff = eff.value - threshold
     const better = s.currentIndicator.value.higherIsBetter ? diff > 0 : diff < 0
     const rel = Math.min(Math.abs(diff) / (Math.abs(threshold) || 1), 1)
     const fillOpacity = 0.35 + 0.55 * rel

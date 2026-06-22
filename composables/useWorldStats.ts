@@ -9,7 +9,13 @@ import {
   type Indicator,
   type Region,
 } from './useIndicators'
-import { loadIndicatorData, keyOf, valueAt, type IndicatorData } from './useStatsData'
+import {
+  loadIndicatorData,
+  keyOf,
+  valueAt,
+  valueAtOrNearest,
+  type IndicatorData,
+} from './useStatsData'
 import { useGeo } from './useGeo'
 import { isEuropean } from './useContinents'
 
@@ -37,7 +43,10 @@ function parseInitialQuery() {
           .map((x) => x.toUpperCase())
           .slice(0, 5)
       : undefined,
-    scale: scale === 'log' || scale === 'linear' ? scale : undefined,
+    scale: (scale === 'log' || scale === 'linear' ? scale : undefined) as
+      | 'log'
+      | 'linear'
+      | undefined,
   }
 }
 const initial = parseInitialQuery()
@@ -54,10 +63,22 @@ const loadedKey = ref<string | null>(null)
 const loading = ref(true)
 const errorMsg = ref<string | null>(null)
 
+// „na obyvatele" přepínač + populace (dělitel) pro absolutní metriky
+const perCapita = ref<boolean>(false)
+const populationData = ref<IndicatorData | null>(null)
+
+// reference pro porovnání: konkrétní země nebo medián regionu
+const referenceMode = ref<'country' | 'median'>('country')
+
 // stav grafu / porovnání
 const compareIsos = ref<string[]>(initial.compare ?? [])
 const yScaleMode = ref<'linear' | 'log'>(initial.scale ?? 'linear')
 const showChart = ref(false)
+
+// scatter (korelační) graf dvou statistik
+const showScatter = ref(false)
+const scatterX = ref<string>('gdp_pc')
+const scatterY = ref<string>('life')
 
 // požadavek na přiblížení mapy na zemi (nonce, na který reaguje mapa)
 const focusNonce = ref(0)
@@ -125,14 +146,64 @@ const isStatic = computed(() => data.value?.isStatic ?? false)
 const minYear = computed(() => data.value?.minYear ?? 1995)
 const maxYear = computed(() => data.value?.maxYear ?? 2024)
 
+// per-capita je aktivní jen u metrik, které to podporují
+const perCapitaActive = computed(() => perCapita.value && !!currentIndicator.value.perCapita)
+// indikátor pro ZOBRAZENÍ (jednotka/desetinná místa/popisek) – v per-capita režimu upravený.
+// Pozor: higherIsBetter zůstává stejné, takže je bezpečné ho použít i pro barevnou logiku.
+const displayIndicator = computed<Indicator>(() => {
+  const ind = currentIndicator.value
+  const pc = ind.perCapita
+  if (perCapitaActive.value && pc) {
+    return { ...ind, unit: pc.unit, decimals: pc.decimals ?? ind.decimals, label: `${ind.label} (na obyv.)` }
+  }
+  return ind
+})
+
+export interface EffectiveValue {
+  value: number
+  /** rok, ze kterého hodnota skutečně pochází (kvůli fallbacku může být jiný než zvolený) */
+  year: number
+  /** true = přesně zvolený rok, false = doplněno z nejbližšího roku */
+  exact: boolean
+}
+
+/**
+ * Hodnota země použitá v UI: zahrnuje fallback na nejbližší rok (always-on) a
+ * případné přepočítání „na obyvatele". `opts.fallback === false` vynutí přesný rok
+ * (pro graf časové řady, kde fallback nedává smysl).
+ */
+function effectiveValue(
+  iso3: string,
+  year: number = selectedYear.value,
+  opts: { fallback?: boolean } = {}
+): EffectiveValue | null {
+  const useFb = opts.fallback !== false
+  const pick = (d: IndicatorData | null, y: number): EffectiveValue | null => {
+    if (useFb) return valueAtOrNearest(d, iso3, y)
+    const v = valueAt(d, iso3, y)
+    return v == null ? null : { value: v, year: y, exact: true }
+  }
+  const raw = pick(data.value, year)
+  if (!raw) return null
+  if (perCapitaActive.value) {
+    const pop = pick(populationData.value, raw.year)
+    if (!pop || !pop.value) return null
+    return { value: raw.value / pop.value, year: raw.year, exact: raw.exact }
+  }
+  return raw
+}
+
 const selectedCountry = computed(() => {
   const iso = selectedIso3.value
   if (!iso) return null
   const { nameFor } = useGeo()
+  const eff = effectiveValue(iso)
   return {
     iso3: iso,
     name: nameFor(iso),
-    value: valueAt(data.value, iso, selectedYear.value),
+    value: eff?.value ?? null,
+    valueYear: eff?.year ?? null,
+    exact: eff?.exact ?? true,
   }
 })
 
@@ -140,54 +211,74 @@ const hoverInfo = computed(() => {
   const iso = hoverIso.value
   if (!iso) return null
   const { nameFor } = useGeo()
-  return { name: nameFor(iso), value: valueAt(data.value, iso, selectedYear.value) }
+  const eff = effectiveValue(iso)
+  return { name: nameFor(iso), value: eff?.value ?? null, valueYear: eff?.year ?? null, exact: eff?.exact ?? true }
 })
 
 // Stav datové dostupnosti referenční země pro aktuální statistiku/rok.
 // Když referenční země nemá hodnotu, nelze nic porovnat a celá mapa zešedne –
 // tento computed dovolí UI na to upozornit (a nabídnout nejbližší rok s daty).
+// Medián aktuální statistiky přes země regionu (s fallbackem i per-capita).
+const regionMedianValue = computed<number | null>(() => {
+  const d = data.value
+  if (!d) return null
+  const { isRealCountry } = useGeo()
+  const europe = region.value === 'europe'
+  const vals: number[] = []
+  for (const iso of Object.keys(d.byCountry)) {
+    if (!isRealCountry(iso)) continue
+    if (europe && !isEuropean(iso)) continue
+    const eff = effectiveValue(iso)
+    if (eff) vals.push(eff.value)
+  }
+  if (!vals.length) return null
+  vals.sort((a, b) => a - b)
+  const m = Math.floor(vals.length / 2)
+  return vals.length % 2 ? vals[m] : (vals[m - 1] + vals[m]) / 2
+})
+
+/**
+ * Referenční hodnota, vůči které se obarvuje mapa. Buď vybraná země, nebo medián
+ * regionu. `null` = žádná reference → mapa se obarví podle absolutní hodnoty (choropleth).
+ */
+const referenceValue = computed<{ value: number; kind: 'country' | 'median' } | null>(() => {
+  if (referenceMode.value === 'median') {
+    const m = regionMedianValue.value
+    return m == null ? null : { value: m, kind: 'median' }
+  }
+  const iso = selectedIso3.value
+  if (!iso) return null
+  const eff = effectiveValue(iso)
+  return eff ? { value: eff.value, kind: 'country' } : null
+})
+
 const selectedNoData = computed(() => {
   const iso = selectedIso3.value
   if (!iso || !ready.value) return null
+  // díky always-on fallbacku je hodnota null jen když opravdu žádná data nejsou
+  if (effectiveValue(iso) != null) return null
+
   const byYear = data.value?.byCountry[iso]
-  if (byYear && byYear[selectedYear.value] != null) return null // vše v pořádku
-
-  const availYears = byYear
-    ? Object.keys(byYear)
-        .map(Number)
-        .filter((y) => byYear[y] != null)
-        .sort((a, b) => a - b)
-    : []
-
-  let nearestYear: number | null = null
-  for (const y of availYears) {
-    if (
-      nearestYear == null ||
-      Math.abs(y - selectedYear.value) < Math.abs(nearestYear - selectedYear.value)
-    ) {
-      nearestYear = y
-    }
-  }
-
-  return {
-    name: useGeo().nameFor(iso),
-    hasAnyYear: availYears.length > 0,
-    nearestYear,
-  }
+  const hasAnyYear = !!byYear && Object.values(byYear).some((v) => v != null)
+  return { name: useGeo().nameFor(iso), hasAnyYear }
 })
 
 // ── Akce ───────────────────────────────────────────────────────
 let loadToken = 0
+let loadController: AbortController | null = null
 
-/** Načte data pro indikátor (token-guard proti závodění při rychlém přepínání). */
+/** Načte data pro indikátor (token-guard + zrušení nedoběhlého předchozího requestu). */
 async function load(indicatorId = selectedIndicatorId.value, desiredYear?: number) {
   const ind = getIndicator(indicatorId, region.value)
   if (!ind) return
   const token = ++loadToken
+  loadController?.abort() // zruš předchozí nedoběhlý fetch
+  const controller = new AbortController()
+  loadController = controller
   loading.value = true
   errorMsg.value = null
   try {
-    const d = await loadIndicatorData(ind)
+    const d = await loadIndicatorData(ind, controller.signal)
     if (token !== loadToken) return // mezitím se přepnula jiná statistika
     data.value = d
     loadedKey.value = keyOf(ind)
@@ -196,17 +287,44 @@ async function load(indicatorId = selectedIndicatorId.value, desiredYear?: numbe
     selectedYear.value =
       y != null && y >= d.minYear && y <= d.maxYear ? y : d.defaultYear
   } catch (e: any) {
-    if (token !== loadToken) return
+    if (token !== loadToken || controller.signal.aborted || e?.name === 'AbortError') return
     errorMsg.value = 'Nepodařilo se načíst data: ' + (e?.message ?? e)
   } finally {
     if (token === loadToken) loading.value = false
   }
 }
 
+/** Načte populaci (World Bank, pokrývá celý svět) jako dělitel pro per-capita. */
+async function ensurePopulation() {
+  if (populationData.value) return
+  const ind = getIndicator('population', 'world')
+  if (!ind) return
+  try {
+    populationData.value = await loadIndicatorData(ind)
+  } catch {
+    // tichý best-effort – bez populace zůstane per-capita prostě prázdné
+  }
+}
+
+function setPerCapita(on: boolean) {
+  perCapita.value = on
+  if (on) ensurePopulation()
+}
+
 function selectCountry(iso3: string | null) {
   selectedIso3.value = iso3
-  // referenční země nesmí být zároveň v seznamu porovnávaných
-  if (iso3) compareIsos.value = compareIsos.value.filter((x) => x !== iso3)
+  // výběr země => reference je země (ne medián)
+  if (iso3) {
+    referenceMode.value = 'country'
+    // referenční země nesmí být zároveň v seznamu porovnávaných
+    compareIsos.value = compareIsos.value.filter((x) => x !== iso3)
+  }
+}
+
+/** Přepne porovnávání vůči mediánu regionu (a zruší výběr země). */
+function setReferenceMedian(on: boolean) {
+  referenceMode.value = on ? 'median' : 'country'
+  if (on) selectedIso3.value = null
 }
 
 function clearSelection() {
@@ -225,6 +343,8 @@ function setRegion(r: Region) {
   if (!isValidIndicatorId(selectedIndicatorId.value, r)) {
     selectedIndicatorId.value = indicatorsForRegion(r)[0].id
   }
+  if (!isValidIndicatorId(scatterX.value, r)) scatterX.value = 'gdp_pc'
+  if (!isValidIndicatorId(scatterY.value, r)) scatterY.value = 'life'
   // v Evropě nedrž vybranou mimoevropskou zemi
   if (r === 'europe' && selectedIso3.value && !isEuropean(selectedIso3.value)) {
     clearSelection()
@@ -255,6 +375,14 @@ function closeChart() {
   showChart.value = false
 }
 
+function openScatter() {
+  ensurePopulation() // bubliny = populace
+  showScatter.value = true
+}
+function closeScatter() {
+  showScatter.value = false
+}
+
 export function useWorldStats() {
   return {
     // počáteční hodnoty z URL (pro inicializaci mapy)
@@ -272,11 +400,19 @@ export function useWorldStats() {
     compareIsos,
     yScaleMode,
     showChart,
+    showScatter,
+    scatterX,
+    scatterY,
     focusNonce,
     darkMode,
     playing,
+    perCapita,
+    populationData,
+    referenceMode,
     // odvozené
     currentIndicator,
+    displayIndicator,
+    perCapitaActive,
     ready,
     isStatic,
     minYear,
@@ -284,9 +420,15 @@ export function useWorldStats() {
     selectedCountry,
     hoverInfo,
     selectedNoData,
+    effectiveValue,
+    referenceValue,
+    regionMedianValue,
     // akce
     load,
     setRegion,
+    setPerCapita,
+    ensurePopulation,
+    setReferenceMedian,
     selectCountry,
     clearSelection,
     focusCountry,
@@ -294,6 +436,8 @@ export function useWorldStats() {
     removeCompare,
     openChart,
     closeChart,
+    openScatter,
+    closeScatter,
     toggleTheme,
     togglePlay,
     stopPlay,

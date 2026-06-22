@@ -3,6 +3,7 @@ import { useWorldStats } from '~/composables/useWorldStats'
 import { useLeafletMap } from '~/composables/useLeafletMap'
 
 const { loading, errorMsg } = useWorldStats()
+const { t } = useI18n()
 
 const mapEl = ref<HTMLElement | null>(null)
 useLeafletMap(mapEl)
@@ -16,7 +17,7 @@ useLeafletMap(mapEl)
       <div ref="mapEl" class="map" />
 
       <div v-if="loading && !errorMsg" class="overlay">
-        <span class="spinner" /> Načítám data…
+        <span class="spinner" /> {{ t('loadingData') }}
       </div>
       <div v-if="errorMsg" class="overlay error">{{ errorMsg }}</div>
 
@@ -26,6 +27,7 @@ useLeafletMap(mapEl)
     </div>
 
     <ChartModal />
+    <ScatterModal />
   </div>
 </template>
 

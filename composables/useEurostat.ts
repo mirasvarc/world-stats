@@ -43,8 +43,16 @@ function buildUrl(ind: Indicator): string {
  * dimenze kromě `geo` a `time` velikost 1 (index 0), takže do indexu přispívají
  * jen geo a time.
  */
-export async function loadEurostat(ind: Indicator): Promise<IndicatorData> {
-  const json = await fetch(buildUrl(ind)).then((r) => r.json())
+export async function loadEurostat(
+  ind: Indicator,
+  signal?: AbortSignal
+): Promise<IndicatorData> {
+  const json = await fetch(buildUrl(ind), { signal }).then((r) => r.json())
+  return parseJsonStat(json)
+}
+
+/** Čistý parser odpovědi JSON-stat 2.0 → IndicatorData (bez sítě, testovatelný). */
+export function parseJsonStat(json: any): IndicatorData {
   const ids: string[] = json.id ?? []
   const sizes: number[] = json.size ?? []
   const values: Record<string, number> = json.value ?? {}

@@ -1,36 +1,62 @@
 <script setup lang="ts">
 import { useWorldStats } from '~/composables/useWorldStats'
+import { useRanking } from '~/composables/useRanking'
+import { useLabels } from '~/composables/useLabels'
+import { formatValue } from '~/composables/useFormat'
 
-const { currentIndicator, selectedIso3 } = useWorldStats()
+const { currentIndicator, displayIndicator, perCapitaActive, referenceMode, referenceValue } = useWorldStats()
+const { ranking } = useRanking()
+const { t } = useI18n()
+const { unit } = useLabels()
+const indUnit = computed(() => unit(currentIndicator.value, perCapitaActive.value))
+
+// je aktivní reference (země nebo medián)? → divergentní škála vůči ní
+const hasReference = computed(() => referenceValue.value != null)
+
+// číselná škála pro choropleth (bez reference): nejlepší / medián / nejhorší
+const valueScale = computed(() => {
+  const rows = ranking.value
+  if (rows.length < 2) return null
+  const best = rows[0].value // #1 = nejlepší
+  const worst = rows[rows.length - 1].value
+  const median = rows[Math.floor(rows.length / 2)].value
+  const f = (v: number) => formatValue(v, displayIndicator.value)
+  return { best: f(best), median: f(median), worst: f(worst) }
+})
 </script>
 
 <template>
   <div class="legend">
-    <template v-if="selectedIso3">
-      <!-- divergentní škála: intenzita barvy = velikost rozdílu vůči vybrané zemi -->
+    <template v-if="hasReference">
+      <!-- divergentní škála: intenzita barvy = velikost rozdílu vůči referenci -->
       <div class="legend-grad-label">
-        <span class="g">lepší ({{ currentIndicator.higherIsBetter ? 'vyšší' : 'nižší' }})</span>
-        <span class="r">horší ({{ currentIndicator.higherIsBetter ? 'nižší' : 'vyšší' }})</span>
+        <span class="g">{{ t('legend.better') }} ({{ currentIndicator.higherIsBetter ? t('legend.higher') : t('legend.lower') }})</span>
+        <span class="r">{{ t('legend.worse') }} ({{ currentIndicator.higherIsBetter ? t('legend.lower') : t('legend.higher') }})</span>
       </div>
       <div class="legend-grad" />
       <div class="legend-grad-sub">
-        <span>velký rozdíl</span>
-        <span>vybraná</span>
-        <span>velký rozdíl</span>
+        <span>{{ t('legend.bigDiff') }}</span>
+        <span>{{ referenceMode === 'median' ? t('legend.median') : t('legend.selected') }}</span>
+        <span>{{ t('legend.bigDiff') }}</span>
       </div>
     </template>
     <template v-else>
       <!-- absolutní škála hodnot: zelená = nejlepší, červená = nejhorší -->
       <div class="legend-grad-label">
-        <span class="g">nejlepší ({{ currentIndicator.higherIsBetter ? 'nejvyšší' : 'nejnižší' }})</span>
-        <span class="r">nejhorší ({{ currentIndicator.higherIsBetter ? 'nejnižší' : 'nejvyšší' }})</span>
+        <span class="g">{{ t('legend.best') }} ({{ currentIndicator.higherIsBetter ? t('legend.highest') : t('legend.lowest') }})</span>
+        <span class="r">{{ t('legend.worst') }} ({{ currentIndicator.higherIsBetter ? t('legend.lowest') : t('legend.highest') }})</span>
       </div>
       <div class="legend-grad value" />
-      <div class="legend-hint">Klikni na zemi pro porovnání vůči ní.</div>
+      <div v-if="valueScale" class="legend-grad-sub">
+        <span>{{ valueScale.best }}</span>
+        <span>{{ valueScale.median }}</span>
+        <span>{{ valueScale.worst }}</span>
+      </div>
+      <div class="legend-hint">{{ t('legend.valuesHint', { unit: indUnit }) }}</div>
     </template>
 
-    <div class="legend-row"><span class="sw blue" /> vybraná země</div>
-    <div class="legend-row"><span class="sw gray" /> bez dat</div>
+    <div class="legend-row"><span class="sw blue" /> {{ t('legend.selectedCountry') }}</div>
+    <div class="legend-row"><span class="sw gray" /> {{ t('legend.noData') }}</div>
   </div>
 </template>
 

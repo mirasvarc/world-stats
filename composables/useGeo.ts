@@ -2,9 +2,12 @@
 //
 // Veřejný GeoJSON: feature.id = ISO-3166 alpha-3 kód, properties.name = název země.
 // Slouží k vykreslení mapy a k filtrování reálných zemí (vs. agregáty World Bank).
+//
+// Self-hostováno v /public (původně raw.githubusercontent.com) – servíruje se ze
+// stejného originu / Cloudflare edge s gzipem a dlouhým cache-control, takže cold
+// load je výrazně rychlejší a spolehlivější než stahování z GitHubu.
 
-const GEOJSON_URL =
-  'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json'
+const GEOJSON_URL = '/countries.geo.json'
 
 // modul-level singleton – sdílený napříč komponentami
 const geojson = shallowRef<any>(null)
