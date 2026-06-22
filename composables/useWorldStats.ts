@@ -135,6 +135,39 @@ const hoverInfo = computed(() => {
   return { name: nameFor(iso), value: valueAt(data.value, iso, selectedYear.value) }
 })
 
+// Stav datové dostupnosti referenční země pro aktuální statistiku/rok.
+// Když referenční země nemá hodnotu, nelze nic porovnat a celá mapa zešedne –
+// tento computed dovolí UI na to upozornit (a nabídnout nejbližší rok s daty).
+const selectedNoData = computed(() => {
+  const iso = selectedIso3.value
+  if (!iso || !ready.value) return null
+  const byYear = data.value?.byCountry[iso]
+  if (byYear && byYear[selectedYear.value] != null) return null // vše v pořádku
+
+  const availYears = byYear
+    ? Object.keys(byYear)
+        .map(Number)
+        .filter((y) => byYear[y] != null)
+        .sort((a, b) => a - b)
+    : []
+
+  let nearestYear: number | null = null
+  for (const y of availYears) {
+    if (
+      nearestYear == null ||
+      Math.abs(y - selectedYear.value) < Math.abs(nearestYear - selectedYear.value)
+    ) {
+      nearestYear = y
+    }
+  }
+
+  return {
+    name: useGeo().nameFor(iso),
+    hasAnyYear: availYears.length > 0,
+    nearestYear,
+  }
+})
+
 // ── Akce ───────────────────────────────────────────────────────
 let loadToken = 0
 
@@ -222,6 +255,7 @@ export function useWorldStats() {
     maxYear,
     selectedCountry,
     hoverInfo,
+    selectedNoData,
     // akce
     load,
     selectCountry,

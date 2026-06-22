@@ -37,6 +37,13 @@ export const INDICATORS: Indicator[] = [
   { id: 'exports', group: 'Ekonomika', label: 'Export zboží a služeb', unit: '% HDP', higherIsBetter: true, source: 'worldbank', code: 'NE.EXP.GNFS.ZS', decimals: 1 },
   { id: 'gini', group: 'Ekonomika', label: 'Příjmová nerovnost (Gini)', unit: 'index', higherIsBetter: false, source: 'worldbank', code: 'SI.POV.GINI', decimals: 1 },
   { id: 'avg_wage', group: 'Ekonomika', label: 'Průměrná mzda (přibližně)', unit: 'USD / měsíc', higherIsBetter: true, source: 'static', file: '/avg-wage.json', decimals: 0 },
+  { id: 'tax_rev', group: 'Ekonomika', label: 'Daňové příjmy', unit: '% HDP', higherIsBetter: true, source: 'worldbank', code: 'GC.TAX.TOTL.GD.ZS', decimals: 1 },
+  { id: 'gov_debt', group: 'Ekonomika', label: 'Státní dluh', unit: '% HDP', higherIsBetter: false, source: 'worldbank', code: 'GC.DOD.TOTL.GD.ZS', decimals: 1 },
+  { id: 'fdi', group: 'Ekonomika', label: 'Přímé zahraniční investice', unit: '% HDP', higherIsBetter: true, source: 'worldbank', code: 'BX.KLT.DINV.WD.GD.ZS', decimals: 1 },
+  { id: 'rnd', group: 'Ekonomika', label: 'Výdaje na výzkum a vývoj', unit: '% HDP', higherIsBetter: true, source: 'worldbank', code: 'GB.XPD.RSDV.GD.ZS', decimals: 2 },
+  { id: 'military', group: 'Ekonomika', label: 'Vojenské výdaje', unit: '% HDP', higherIsBetter: true, source: 'worldbank', code: 'MS.MIL.XPND.GD.ZS', decimals: 1 },
+  { id: 'tourism', group: 'Ekonomika', label: 'Turistické příjezdy', unit: 'příjezdů/rok', higherIsBetter: true, source: 'worldbank', code: 'ST.INT.ARVL', decimals: 0 },
+  { id: 'poverty', group: 'Ekonomika', label: 'Extrémní chudoba (pod $2,15/den)', unit: '%', higherIsBetter: false, source: 'worldbank', code: 'SI.POV.DDAY', decimals: 1 },
 
   // ── Obyvatelstvo ────────────────────────────────────────────
   { id: 'population', group: 'Obyvatelstvo', label: 'Počet obyvatel', unit: 'obyvatel', higherIsBetter: true, source: 'worldbank', code: 'SP.POP.TOTL', decimals: 0 },
@@ -58,6 +65,8 @@ export const INDICATORS: Indicator[] = [
   { id: 'mobile', group: 'Vzdělání & technologie & ekologie', label: 'Mobilní předplatné', unit: 'na 100 lidí', higherIsBetter: true, source: 'worldbank', code: 'IT.CEL.SETS.P2', decimals: 1 },
   { id: 'electricity', group: 'Vzdělání & technologie & ekologie', label: 'Přístup k elektřině', unit: '%', higherIsBetter: true, source: 'worldbank', code: 'EG.ELC.ACCS.ZS', decimals: 1 },
   { id: 'co2', group: 'Vzdělání & technologie & ekologie', label: 'Emise CO₂ na obyvatele', unit: 't/rok', higherIsBetter: false, source: 'worldbank', code: 'EN.GHG.CO2.PC.CE.AR5', decimals: 2 },
+  { id: 'renewable', group: 'Vzdělání & technologie & ekologie', label: 'Obnovitelná energie', unit: '% spotřeby', higherIsBetter: true, source: 'worldbank', code: 'EG.FEC.RNEW.ZS', decimals: 1 },
+  { id: 'forest', group: 'Vzdělání & technologie & ekologie', label: 'Lesní plocha', unit: '% území', higherIsBetter: true, source: 'worldbank', code: 'AG.LND.FRST.ZS', decimals: 1 },
 ]
 
 const INDICATOR_BY_ID = new Map(INDICATORS.map((i) => [i.id, i]))

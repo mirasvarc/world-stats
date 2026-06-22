@@ -10,6 +10,8 @@ const {
   selectedYear,
   ready,
   openChart,
+  selectedNoData,
+  clearSelection,
 } = useWorldStats()
 const { selectedRank } = useRanking()
 
@@ -41,15 +43,26 @@ const collapsed = ref(false)
       <div class="panel-title">Referenční země · {{ selectedYear }}</div>
       <div class="country-name-row">
         <span class="country-name">{{ selectedCountry.name }}</span>
-        <button class="chart-btn" :disabled="!ready" title="Zobrazit vývoj v čase" @click="openChart()">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path
-              fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round"
-              d="M3 3v18h18 M7 14l4-4 3 3 5-6"
-            />
-          </svg>
-        </button>
+        <div class="country-actions">
+          <button class="chart-btn" :disabled="!ready" title="Zobrazit vývoj v čase" @click="openChart()">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"
+                d="M3 3v18h18 M7 14l4-4 3 3 5-6"
+              />
+            </svg>
+          </button>
+          <button class="close-btn" title="Zrušit výběr země" @click="clearSelection()">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"
+                d="M6 6l12 12 M18 6L6 18"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="country-val">
         <template v-if="!ready"><span class="muted">Načítám…</span></template>
@@ -61,6 +74,24 @@ const collapsed = ref(false)
       </div>
       <div v-if="ready && selectedRank" class="rank-badge">
         Pořadí: <b>#{{ selectedRank.rank }}</b> z {{ selectedRank.total }}
+      </div>
+
+      <div v-if="selectedNoData" class="nodata-warn">
+        <template v-if="selectedNoData.hasAnyYear">
+          <b>{{ selectedNoData.name }}</b> nemá pro statistiku
+          „{{ currentIndicator.label }}" data v roce <b>{{ selectedYear }}</b>,
+          takže mapu nelze podle ní porovnat.
+          <button
+            v-if="selectedNoData.nearestYear"
+            class="nodata-btn"
+            @click="selectedYear = selectedNoData.nearestYear"
+          >Přejít na rok {{ selectedNoData.nearestYear }} (nejbližší s daty)</button>
+        </template>
+        <template v-else>
+          <b>{{ selectedNoData.name }}</b> nemá pro statistiku
+          „{{ currentIndicator.label }}" žádná data, takže mapu nelze podle ní
+          porovnat. Vyber jinou zemi nebo statistiku.
+        </template>
       </div>
     </div>
 
@@ -154,6 +185,20 @@ const collapsed = ref(false)
 }
 .chart-btn:hover { background: var(--accent-soft); border-color: var(--accent); }
 .chart-btn:disabled { opacity: 0.4; cursor: default; }
+.country-actions { display: flex; gap: 0.4rem; flex: 0 0 auto; }
+.close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--border-2);
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.close-btn:hover { background: var(--bad); border-color: var(--bad); color: #fff; }
 .country-val { font-size: 1.1rem; color: var(--accent); font-weight: 600; margin-top: 0.2rem; }
 .unit { font-size: 0.8rem; color: var(--text-3); font-weight: 400; }
 .muted { color: var(--text-muted); font-weight: 400; }
@@ -181,6 +226,30 @@ const collapsed = ref(false)
   border-radius: 6px;
   line-height: 1.35;
 }
+.nodata-warn {
+  margin-top: 0.7rem;
+  font-size: 0.8rem;
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-text);
+  padding: 0.55rem 0.6rem;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+.nodata-btn {
+  display: block;
+  margin-top: 0.5rem;
+  width: 100%;
+  border: 1px solid var(--warn-text);
+  background: transparent;
+  color: var(--warn-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.nodata-btn:hover { background: var(--warn-text); color: var(--warn-bg); }
 
 /* Mobil: panel jako spodní list přes celou šířku, sbalitelný. */
 @media (max-width: 640px) {

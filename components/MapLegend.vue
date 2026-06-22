@@ -20,7 +20,13 @@ const { currentIndicator, selectedIso3 } = useWorldStats()
       </div>
     </template>
     <template v-else>
-      <div class="legend-row"><span class="sw neutral" /> hodnota (klikni na zemi pro porovnání)</div>
+      <!-- absolutní škála hodnot: zelená = nejlepší, červená = nejhorší -->
+      <div class="legend-grad-label">
+        <span class="g">nejlepší ({{ currentIndicator.higherIsBetter ? 'nejvyšší' : 'nejnižší' }})</span>
+        <span class="r">nejhorší ({{ currentIndicator.higherIsBetter ? 'nejnižší' : 'nejvyšší' }})</span>
+      </div>
+      <div class="legend-grad value" />
+      <div class="legend-hint">Klikni na zemi pro porovnání vůči ní.</div>
     </template>
 
     <div class="legend-row"><span class="sw blue" /> vybraná země</div>
@@ -50,6 +56,10 @@ const { currentIndicator, selectedIso3 } = useWorldStats()
     #b91c1c
   );
 }
+.legend-grad.value {
+  background: linear-gradient(to right, #22c55e, #eab308, #ef4444);
+}
+.legend-hint { font-size: 0.72rem; color: var(--text-3); }
 .legend-grad-label,
 .legend-grad-sub {
   display: flex;
