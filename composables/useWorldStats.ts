@@ -4,11 +4,14 @@
 import {
   INDICATORS,
   getIndicator,
+  indicatorsForRegion,
   isValidIndicatorId,
   type Indicator,
+  type Region,
 } from './useIndicators'
-import { loadIndicatorData, valueAt, type IndicatorData } from './useStatsData'
+import { loadIndicatorData, keyOf, valueAt, type IndicatorData } from './useStatsData'
 import { useGeo } from './useGeo'
+import { isEuropean } from './useContinents'
 
 // ── Počáteční stav z URL (?stat=...&year=...&country=...&compare=...&scale=...) ───────
 const ISO3_RE = /^[A-Za-z]{3}$/
@@ -21,8 +24,10 @@ function parseInitialQuery() {
   const country = p.get('country')
   const compare = p.get('compare')
   const scale = p.get('scale')
+  const region: Region = p.get('region') === 'europe' ? 'europe' : 'world'
   return {
-    stat: isValidIndicatorId(stat) ? stat! : undefined,
+    region,
+    stat: isValidIndicatorId(stat, region) ? stat! : undefined,
     year: year && /^\d{4}$/.test(year) ? Number(year) : undefined,
     country: country && ISO3_RE.test(country) ? country.toUpperCase() : undefined,
     compare: compare
@@ -38,13 +43,14 @@ function parseInitialQuery() {
 const initial = parseInitialQuery()
 
 // ── Reaktivní stav (modul-level singleton) ─────────────────────
+const region = ref<Region>(initial.region ?? 'world')
 const selectedIndicatorId = ref<string>(initial.stat ?? INDICATORS[0].id)
 const selectedYear = ref<number>(initial.year ?? 2024)
 const selectedIso3 = ref<string | null>(null)
 const hoverIso = ref<string | null>(null)
 
 const data = ref<IndicatorData | null>(null)
-const loadedIndicatorId = ref<string | null>(null)
+const loadedKey = ref<string | null>(null)
 const loading = ref(true)
 const errorMsg = ref<string | null>(null)
 
@@ -107,11 +113,13 @@ function togglePlay() {
 
 // ── Odvozený stav ──────────────────────────────────────────────
 const currentIndicator = computed<Indicator>(
-  () => getIndicator(selectedIndicatorId.value) ?? INDICATORS[0]
+  () =>
+    getIndicator(selectedIndicatorId.value, region.value) ??
+    indicatorsForRegion(region.value)[0]
 )
 /** data v UI jen když odpovídají vybrané statistice (ochrana proti zastaralým hodnotám) */
 const ready = computed(
-  () => data.value != null && loadedIndicatorId.value === selectedIndicatorId.value
+  () => data.value != null && loadedKey.value === keyOf(currentIndicator.value)
 )
 const isStatic = computed(() => data.value?.isStatic ?? false)
 const minYear = computed(() => data.value?.minYear ?? 1995)
@@ -173,7 +181,7 @@ let loadToken = 0
 
 /** Načte data pro indikátor (token-guard proti závodění při rychlém přepínání). */
 async function load(indicatorId = selectedIndicatorId.value, desiredYear?: number) {
-  const ind = getIndicator(indicatorId)
+  const ind = getIndicator(indicatorId, region.value)
   if (!ind) return
   const token = ++loadToken
   loading.value = true
@@ -182,7 +190,7 @@ async function load(indicatorId = selectedIndicatorId.value, desiredYear?: numbe
     const d = await loadIndicatorData(ind)
     if (token !== loadToken) return // mezitím se přepnula jiná statistika
     data.value = d
-    loadedIndicatorId.value = ind.id
+    loadedKey.value = keyOf(ind)
     if (d.isStatic) stopPlay() // statická data nemají časovou osu
     const y = desiredYear
     selectedYear.value =
@@ -203,6 +211,25 @@ function selectCountry(iso3: string | null) {
 
 function clearSelection() {
   selectCountry(null)
+}
+
+/**
+ * Přepne region (Svět/Evropa). Případně srovná neplatnou statistiku či výběr země
+ * (např. mimoevropskou zemi v evropském režimu). Samotné načtení dat + překreslení
+ * mapy obstará watcher v useLeafletMap.
+ */
+function setRegion(r: Region) {
+  if (r === region.value) return
+  region.value = r
+  // statistika nemusí v novém regionu existovat (evropská statistika ve Světě)
+  if (!isValidIndicatorId(selectedIndicatorId.value, r)) {
+    selectedIndicatorId.value = indicatorsForRegion(r)[0].id
+  }
+  // v Evropě nedrž vybranou mimoevropskou zemi
+  if (r === 'europe' && selectedIso3.value && !isEuropean(selectedIso3.value)) {
+    clearSelection()
+  }
+  stopPlay()
 }
 
 /** Vybere zemi a požádá mapu o přiblížení. */
@@ -234,6 +261,7 @@ export function useWorldStats() {
     initialCountry: initial.country,
     initialYear: initial.year,
     // stav
+    region,
     selectedIndicatorId,
     selectedYear,
     selectedIso3,
@@ -258,6 +286,7 @@ export function useWorldStats() {
     selectedNoData,
     // akce
     load,
+    setRegion,
     selectCountry,
     clearSelection,
     focusCountry,

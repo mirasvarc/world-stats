@@ -2,7 +2,7 @@
 
 import { useWorldStats } from './useWorldStats'
 import { useGeo } from './useGeo'
-import { continentOf, type Continent } from './useContinents'
+import { continentOf, isEuropean, type Continent } from './useContinents'
 
 export interface RankRow {
   iso3: string
@@ -22,9 +22,11 @@ export function useRanking() {
     const higher = s.currentIndicator.value.higherIsBetter
     const year = s.selectedYear.value
 
+    const europe = s.region.value === 'europe'
     const rows: { iso3: string; name: string; value: number }[] = []
     for (const iso3 of Object.keys(d.byCountry)) {
       if (!isRealCountry(iso3)) continue // jen reálné země z mapy
+      if (europe && !isEuropean(iso3)) continue // v Evropě jen evropské země
       const v = d.byCountry[iso3][year]
       if (v == null) continue
       rows.push({ iso3, name: nameFor(iso3), value: v })

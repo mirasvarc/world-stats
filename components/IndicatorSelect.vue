@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { groupedIndicators } from '~/composables/useIndicators'
+import { useWorldStats } from '~/composables/useWorldStats'
 
 const props = defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
-const groups = groupedIndicators()
+const { region } = useWorldStats()
+const groups = computed(() => groupedIndicators(region.value))
 const value = computed({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v),

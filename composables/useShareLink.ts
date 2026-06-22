@@ -10,6 +10,7 @@ export function useShareLink() {
 
   function buildUrl(): string {
     const p = new URLSearchParams()
+    if (s.region.value === 'europe') p.set('region', 'europe')
     p.set('stat', s.selectedIndicatorId.value)
     if (!s.isStatic.value) p.set('year', String(s.selectedYear.value))
     if (s.selectedIso3.value) p.set('country', s.selectedIso3.value)
@@ -38,7 +39,7 @@ export function useShareLink() {
 
   // průběžná synchronizace
   watch(
-    [s.selectedIndicatorId, s.selectedYear, s.selectedIso3, s.compareIsos, s.yScaleMode],
+    [s.region, s.selectedIndicatorId, s.selectedYear, s.selectedIso3, s.compareIsos, s.yScaleMode],
     syncUrl
   )
 

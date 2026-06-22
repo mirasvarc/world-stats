@@ -60,3 +60,10 @@ for (const [cont, list] of Object.entries(BY_CONTINENT)) {
 export function continentOf(iso3: string): Continent {
   return ISO_TO_CONTINENT.get(iso3) ?? 'Ostatní'
 }
+
+/** Množina ISO-3 kódů evropských zemí (pro režim „Evropa"). */
+export const EUROPE_ISO3 = new Set<string>(BY_CONTINENT.Evropa)
+
+export function isEuropean(iso3: string): boolean {
+  return EUROPE_ISO3.has(iso3)
+}

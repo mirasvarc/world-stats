@@ -2,7 +2,7 @@
 import { useWorldStats } from '~/composables/useWorldStats'
 import { useShareLink } from '~/composables/useShareLink'
 
-const { selectedIndicatorId, selectedIso3, clearSelection, darkMode, toggleTheme } =
+const { region, setRegion, selectedIndicatorId, selectedIso3, clearSelection, darkMode, toggleTheme } =
   useWorldStats()
 const { copied, copyLink } = useShareLink()
 
@@ -17,6 +17,18 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
       Mapa světových statistik
     </div>
     <div class="controls">
+      <div class="region-switch" role="group" aria-label="Region">
+        <button
+          :class="{ active: region === 'world' }"
+          :aria-pressed="region === 'world'"
+          @click="setRegion('world')"
+        >🌍 Svět</button>
+        <button
+          :class="{ active: region === 'europe' }"
+          :aria-pressed="region === 'europe'"
+          @click="setRegion('europe')"
+        >🇪🇺 Evropa</button>
+      </div>
       <label>
         Statistika:
         <IndicatorSelect v-model="selectedIndicatorId" />
@@ -96,6 +108,30 @@ const GITHUB_URL = 'https://github.com/mirasvarc/world-stats'
 }
 .controls label {
   font-size: 0.9rem;
+}
+.region-switch {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.region-switch button {
+  border: none;
+  background: transparent;
+  color: #cbd5e1;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.region-switch button:hover { color: #fff; }
+.region-switch button.active {
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
 }
 .controls :deep(select) {
   margin-left: 0.4rem;

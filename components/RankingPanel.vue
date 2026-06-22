@@ -6,7 +6,7 @@ import { formatValue, normalizeText } from '~/composables/useFormat'
 import { CONTINENTS } from '~/composables/useContinents'
 import { exportRankingCsv } from '~/composables/useExport'
 
-const { selectedIso3, currentIndicator, selectedYear, ready, focusCountry } = useWorldStats()
+const { region, selectedIso3, currentIndicator, selectedYear, ready, focusCountry } = useWorldStats()
 const { ranking } = useRanking()
 const { colorFor } = useColorScale()
 
@@ -48,7 +48,7 @@ function onExport() {
         <input v-model="search" type="text" placeholder="Hledat zemi…" spellcheck="false" />
         <button v-if="search" class="rank-search-clear" @click="search = ''">✕</button>
       </div>
-      <select v-model="continent" class="rank-cont" aria-label="Filtr kontinentu">
+      <select v-if="region !== 'europe'" v-model="continent" class="rank-cont" aria-label="Filtr kontinentu">
         <option value="">Všechny kontinenty</option>
         <option v-for="c in CONTINENTS" :key="c" :value="c">{{ c }}</option>
       </select>

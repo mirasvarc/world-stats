@@ -6,6 +6,7 @@
 // Statické datasety (např. mzdy) se načítají z /public a nemají časovou řadu.
 
 import type { Indicator } from './useIndicators'
+import { loadEurostat } from './useEurostat'
 
 export interface IndicatorData {
   /** iso3 -> (rok -> hodnota) */
@@ -99,20 +100,31 @@ function lsSet(id: string, d: IndicatorData): void {
   }
 }
 
+/** Klíč pro cache – odlišuje stejné id z různých zdrojů (WB vs Eurostat). */
+export function keyOf(ind: Indicator): string {
+  return `${ind.source}:${ind.id}`
+}
+
 /** Načte data indikátoru (paměťová → localStorage → síť). */
 export async function loadIndicatorData(ind: Indicator): Promise<IndicatorData> {
-  const cached = cache.get(ind.id)
+  const key = keyOf(ind)
+  const cached = cache.get(key)
   if (cached) return cached
 
-  const stored = lsGet(ind.id)
+  const stored = lsGet(key)
   if (stored) {
-    cache.set(ind.id, stored)
+    cache.set(key, stored)
     return stored
   }
 
-  const result = ind.source === 'static' ? await loadStatic(ind) : await loadWorldBank(ind)
-  cache.set(ind.id, result)
-  lsSet(ind.id, result)
+  const result =
+    ind.source === 'static'
+      ? await loadStatic(ind)
+      : ind.source === 'eurostat'
+        ? await loadEurostat(ind)
+        : await loadWorldBank(ind)
+  cache.set(key, result)
+  lsSet(key, result)
   return result
 }
 

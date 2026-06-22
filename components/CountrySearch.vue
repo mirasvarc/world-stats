@@ -3,8 +3,9 @@
 import { useWorldStats } from '~/composables/useWorldStats'
 import { useGeo } from '~/composables/useGeo'
 import { normalizeText } from '~/composables/useFormat'
+import { isEuropean } from '~/composables/useContinents'
 
-const { focusCountry } = useWorldStats()
+const { region, focusCountry } = useWorldStats()
 const { nameMap, countryIds } = useGeo()
 
 const query = ref('')
@@ -14,6 +15,7 @@ const rootEl = ref<HTMLElement | null>(null)
 
 const allCountries = computed(() =>
   Array.from(countryIds.value)
+    .filter((iso3) => region.value !== 'europe' || isEuropean(iso3))
     .map((iso3) => ({ iso3, name: nameMap.value[iso3] ?? iso3 }))
     .sort((a, b) => a.name.localeCompare(b.name, 'cs'))
 )

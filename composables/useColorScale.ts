@@ -4,6 +4,7 @@
 import { valueAt } from './useStatsData'
 import { useWorldStats } from './useWorldStats'
 import { useRanking } from './useRanking'
+import { isEuropean } from './useContinents'
 
 export interface LeafletStyle {
   fillColor: string
@@ -59,6 +60,11 @@ export function useColorScale() {
   })
 
   function styleFor(iso3: string): LeafletStyle {
+    // V režimu Evropa jsou mimoevropské země ztlumené (mimo zájem).
+    if (s.region.value === 'europe' && !isEuropean(iso3)) {
+      return { fillColor: COLORS.noData, fillOpacity: 0.12, color: COLORS.stroke, weight: 0.5 }
+    }
+
     const value = valueAt(s.data.value, iso3, s.selectedYear.value)
 
     if (value == null) {

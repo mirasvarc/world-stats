@@ -5,6 +5,8 @@
 // u statického datasetu `file` (cesta do /public). `higherIsBetter` určuje,
 // zda vyšší hodnota znamená „lepší" (zelená) – u inflace, nezaměstnanosti apod. je false.
 
+export type Region = 'world' | 'europe'
+
 export interface Indicator {
   id: string
   label: string
@@ -12,11 +14,15 @@ export interface Indicator {
   group: string
   /** true = vyšší hodnota je „lepší" (zelená); false = nižší je lepší (např. inflace) */
   higherIsBetter: boolean
-  source: 'worldbank' | 'static'
+  source: 'worldbank' | 'static' | 'eurostat'
   /** kód World Bank indikátoru (pro source === 'worldbank') */
   code?: string
   /** cesta k JSON datasetu v /public (pro source === 'static') */
   file?: string
+  /** Eurostat dataset (pro source === 'eurostat') */
+  dataset?: string
+  /** připnuté filtry dimenzí Eurostatu (vše kromě geo/time musí být 1 hodnota) */
+  filters?: Record<string, string>
   /** počet desetinných míst při zobrazení */
   decimals?: number
 }
@@ -69,20 +75,57 @@ export const INDICATORS: Indicator[] = [
   { id: 'forest', group: 'Vzdělání & technologie & ekologie', label: 'Lesní plocha', unit: '% území', higherIsBetter: true, source: 'worldbank', code: 'AG.LND.FRST.ZS', decimals: 1 },
 ]
 
-const INDICATOR_BY_ID = new Map(INDICATORS.map((i) => [i.id, i]))
+// ── Eurostat (jen pro režim „Evropa") ───────────────────────────
+//
+// Indikátory se SHODNÝM `id` jako ve World Bank seznamu nahrazují v Evropě
+// méně přesný World Bank zdroj (harmonizovaná / přímo měřená data EU).
+// Indikátory s novým `id` jsou evropské statistiky navíc.
+export const EUROSTAT_INDICATORS: Indicator[] = [
+  // ── Náhrady přesnějšími daty EU (stejné id jako World Bank) ──
+  { id: 'population', group: 'Obyvatelstvo', label: 'Počet obyvatel (Eurostat)', unit: 'obyvatel', higherIsBetter: true, source: 'eurostat', dataset: 'demo_pjan', filters: { unit: 'NR', age: 'TOTAL', sex: 'T' }, decimals: 0 },
+  { id: 'life', group: 'Zdraví & život', label: 'Očekávaná délka života (Eurostat)', unit: 'let', higherIsBetter: true, source: 'eurostat', dataset: 'demo_mlexpec', filters: { unit: 'YR', sex: 'T', age: 'Y_LT1' }, decimals: 1 },
+  { id: 'inflation', group: 'Ekonomika', label: 'Inflace (HICP, Eurostat)', unit: '%', higherIsBetter: false, source: 'eurostat', dataset: 'prc_hicp_aind', filters: { unit: 'RCH_A_AVG', coicop: 'CP00' }, decimals: 1 },
+  { id: 'unemployment', group: 'Ekonomika', label: 'Nezaměstnanost (Eurostat)', unit: '%', higherIsBetter: false, source: 'eurostat', dataset: 'une_rt_a', filters: { age: 'Y15-74', unit: 'PC_ACT', sex: 'T' }, decimals: 1 },
+  { id: 'gdp_growth', group: 'Ekonomika', label: 'Růst HDP (Eurostat)', unit: '%', higherIsBetter: true, source: 'eurostat', dataset: 'tec00115', filters: { unit: 'CLV_PCH_PRE', na_item: 'B1GQ' }, decimals: 1 },
 
-export function getIndicator(id: string): Indicator | undefined {
-  return INDICATOR_BY_ID.get(id)
+  // ── Nové evropské statistiky ──
+  { id: 'eu_poverty', group: 'Ekonomika', label: 'Ohrožení chudobou nebo soc. vyloučením', unit: '%', higherIsBetter: false, source: 'eurostat', dataset: 'ilc_peps01n', filters: { unit: 'PC', age: 'TOTAL', sex: 'T' }, decimals: 1 },
+  { id: 'eu_min_wage', group: 'Ekonomika', label: 'Minimální mzda', unit: 'EUR / měsíc', higherIsBetter: true, source: 'eurostat', dataset: 'earn_mw_cur', filters: { currency: 'EUR' }, decimals: 0 },
+]
+
+const BASE_BY_ID = new Map(INDICATORS.map((i) => [i.id, i]))
+const EU_BY_ID = new Map(EUROSTAT_INDICATORS.map((i) => [i.id, i]))
+
+/** Vrátí indikátor podle id; v Evropě upřednostní přesnější Eurostat variantu. */
+export function getIndicator(id: string, region: Region = 'world'): Indicator | undefined {
+  if (region === 'europe') {
+    const eu = EU_BY_ID.get(id)
+    if (eu) return eu
+  }
+  return BASE_BY_ID.get(id)
 }
 
-export function isValidIndicatorId(id: string | null | undefined): boolean {
-  return !!id && INDICATOR_BY_ID.has(id)
+export function isValidIndicatorId(
+  id: string | null | undefined,
+  region: Region = 'world'
+): boolean {
+  if (!id) return false
+  if (region === 'europe') return EU_BY_ID.has(id) || BASE_BY_ID.has(id)
+  return BASE_BY_ID.has(id)
+}
+
+/** Seznam indikátorů pro daný region (Evropa = náhrady + evropské statistiky navíc). */
+export function indicatorsForRegion(region: Region): Indicator[] {
+  if (region !== 'europe') return INDICATORS
+  const out = INDICATORS.map((i) => EU_BY_ID.get(i.id) ?? i)
+  for (const eu of EUROSTAT_INDICATORS) if (!BASE_BY_ID.has(eu.id)) out.push(eu)
+  return out
 }
 
 /** Statistiky seskupené podle kategorie (pro <optgroup> v selectu). */
-export function groupedIndicators(): IndicatorGroup[] {
+export function groupedIndicators(region: Region = 'world'): IndicatorGroup[] {
   const groups: IndicatorGroup[] = []
-  for (const ind of INDICATORS) {
+  for (const ind of indicatorsForRegion(region)) {
     let g = groups.find((x) => x.name === ind.group)
     if (!g) {
       g = { name: ind.group, items: [] }

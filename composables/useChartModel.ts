@@ -4,6 +4,7 @@
 import { useWorldStats } from './useWorldStats'
 import { useGeo } from './useGeo'
 import { compactNumber } from './useFormat'
+import { isEuropean } from './useContinents'
 
 export const CHART = { width: 680, height: 360 }
 export const PAD = { top: 24, right: 26, bottom: 42, left: 70 }
@@ -95,13 +96,16 @@ export function useChartModel() {
 
     const useLog = s.yScaleMode.value === 'log' && logFeasible.value
 
-    // světový medián za rok (jen reálné země s daty) – v rozsahu let grafu
+    // medián za rok (jen reálné země s daty) – v rozsahu let grafu
+    // v režimu Evropa počítán jen z evropských zemí
+    const europe = s.region.value === 'europe'
     let medianPts: { year: number; value: number }[] = []
     if (showMedian.value) {
       for (let yr = x0; yr <= x1; yr++) {
         const vals: number[] = []
         for (const iso in d.byCountry) {
           if (!isRealCountry(iso)) continue
+          if (europe && !isEuropean(iso)) continue
           const v = d.byCountry[iso][yr]
           if (v != null) vals.push(v)
         }
@@ -146,7 +150,7 @@ export function useChartModel() {
           const coords = buildLine(medianPts)
           return {
             iso: '__median',
-            name: 'medián světa',
+            name: europe ? 'medián Evropy' : 'medián světa',
             color: MEDIAN_COLOR,
             coords,
             line: coords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' '),

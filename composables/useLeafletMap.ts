@@ -9,10 +9,17 @@ import { useGeo } from './useGeo'
 import { useColorScale } from './useColorScale'
 import { valueAt } from './useStatsData'
 import { formatValue } from './useFormat'
+import { isEuropean } from './useContinents'
 
 const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
 const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
-const TILE_ATTR = '&copy; OpenStreetMap, &copy; CARTO | Data: World Bank'
+const TILE_ATTR = '&copy; OpenStreetMap, &copy; CARTO | Data: World Bank, Eurostat'
+
+// Výřez mapy pro režim Evropa (přibližně kontinentální Evropa).
+const EUROPE_BOUNDS: [[number, number], [number, number]] = [
+  [34, -12],
+  [71, 42],
+]
 
 export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
   const s = useWorldStats()
@@ -39,6 +46,16 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
     geoLayer?.eachLayer((layer: any) => layer.setStyle(styleFor(layer.feature.id)))
   }
 
+  /** Přizpůsobí výřez mapy regionu (Evropa = výřez, Svět = celosvětový pohled). */
+  function fitRegion() {
+    if (!map) return
+    if (s.region.value === 'europe') {
+      map.fitBounds(EUROPE_BOUNDS, { padding: [10, 10] })
+    } else {
+      map.setView([25, 10], 2)
+    }
+  }
+
   function focusOn(iso3: string | null) {
     if (!iso3 || !geoLayer || !map) return
     geoLayer.eachLayer((layer: any) => {
@@ -59,7 +76,11 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
       opacity: 1,
     })
     layer.on({
-      click: () => s.selectCountry(feature.id),
+      click: () => {
+        // v Evropě nelze vybrat mimoevropskou (ztlumenou) zemi
+        if (s.region.value === 'europe' && !isEuropean(feature.id)) return
+        s.selectCountry(feature.id)
+      },
       mouseover: (e: any) => {
         s.hoverIso.value = feature.id
         e.target.setStyle({ weight: 2.5, color: '#0f172a' })
@@ -107,7 +128,8 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
         onEachFeature,
       }).addTo(map)
 
-      focusOn(s.selectedIso3.value)
+      if (s.region.value === 'europe' && !s.selectedIso3.value) fitRegion()
+      else focusOn(s.selectedIso3.value)
     } catch (e: any) {
       s.errorMsg.value = 'Nepodařilo se načíst mapu/data: ' + (e?.message ?? e)
       s.loading.value = false
@@ -127,6 +149,12 @@ export function useLeafletMap(mapEl: Ref<HTMLElement | null>) {
   })
   watch(s.selectedYear, restyle)
   watch(s.selectedIso3, restyle)
+  // přepnutí regionu (Svět/Evropa) → načíst data, překreslit a přiblížit výřez
+  watch(s.region, async () => {
+    await s.load()
+    restyle()
+    fitRegion()
+  })
   watch(s.focusNonce, () => focusOn(s.selectedIso3.value))
   // přepnutí tmavého režimu → výměna mapových dlaždic
   watch(s.darkMode, (dark) => tileLayer?.setUrl(dark ? TILE_DARK : TILE_LIGHT))

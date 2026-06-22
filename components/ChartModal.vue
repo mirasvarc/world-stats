@@ -5,6 +5,7 @@ import { formatValue, formatPercent } from '~/composables/useFormat'
 import { exportChartSvg, exportChartPng } from '~/composables/useExport'
 
 const {
+  region,
   showChart,
   closeChart,
   selectedCountry,
@@ -93,7 +94,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             </div>
 
             <button class="median-toggle" :class="{ on: showMedian }" @click="showMedian = !showMedian">
-              <span class="median-dash" /> medián světa
+              <span class="median-dash" /> {{ region === 'europe' ? 'medián Evropy' : 'medián světa' }}
             </button>
 
             <div class="add-country">
